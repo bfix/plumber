@@ -43,7 +43,7 @@ func getRuleset(fname string) (rs *Ruleset, err error) {
 }
 
 func TestRulesInOut(t *testing.T) {
-	rs, err := getRuleset("test/rules-plan9")
+	rs, err := getRuleset("../rules/plan9")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,13 +69,12 @@ func TestRulesEval(t *testing.T) {
 		{"src/main.go:87", "", ""},
 		{"Local date", "", ""},
 	}
-	rs, err := getRuleset("test/rules-plan9")
+	rs, err := getRuleset("../rules/plan9")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for i, d := range data {
-		//t.Logf("Check '%s'", d[0])
 		_, rid, err := rs.Evaluate(d[0], d[1], d[2], "", false)
 		if err != nil {
 			t.Fatal(err)
