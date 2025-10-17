@@ -174,12 +174,9 @@ func (r *Rule) Evaluate(
 	k.withFS = withFS
 
 	for _, cl := range r.Stmts {
-		var ok, done bool
-		if ok, done, err = k.Execute(cl, env); err != nil {
+		var ok bool
+		if ok, err = k.Execute(cl, env); err != nil {
 			return
-		}
-		if done {
-			break
 		}
 		if !ok {
 			return nil, nil

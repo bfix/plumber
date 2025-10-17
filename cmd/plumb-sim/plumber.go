@@ -39,11 +39,10 @@ func (p *Plumber) ParseRuleset(rdr io.Reader) (err error) {
 	return
 }
 
-func (p *Plumber) Action(msg *lib.Message, verb, data string) (ok, done bool) {
+func (p *Plumber) Action(msg *lib.Message, verb, data string) (ok bool) {
 	log.Printf("==> %s %s", verb, lib.Quote(data))
 	log.Printf("    Attr: %s", msg.GetAttr())
 	ok = true
-
 	return
 }
 
