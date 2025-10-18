@@ -56,12 +56,20 @@ func (p *Plumber) Env() map[string]string {
 
 // Eval runs evaluation of data based on defined rules
 func (p *Plumber) Eval(data, src, dst, wdir string) error {
-	_, _, err := p.rs.Evaluate(data, src, dst, wdir, false)
+	msg := &Message{
+		Src:  src,
+		Dst:  dst,
+		Wdir: wdir,
+		Attr: make(map[string]string),
+		Data: data,
+	}
+	_, _, err := p.rs.Evaluate(msg, false)
 	return err
 }
 
 func (p *Plumber) Process(msg *Message) error {
-	return p.Eval(msg.Data, msg.Src, msg.Dst, msg.Wdir)
+	_, _, err := p.rs.Evaluate(msg, false)
+	return err
 }
 
 func (p *Plumber) ReadRules(ofs uint64, num uint32) ([]byte, error) {

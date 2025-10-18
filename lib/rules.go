@@ -44,13 +44,13 @@ type Ruleset struct {
 
 // Evaluate data,src,dst,wdir against all rules in set.
 // If msg is not null, rid points to the matching rule
-func (rs *Ruleset) Evaluate(data, src, dst, wdir string, withFS bool) (msg *Message, rid int, err error) {
+func (rs *Ruleset) Evaluate(in *Message, withFS bool) (out *Message, rid int, err error) {
 	rid = -1
 	for i, r := range rs.Rules {
-		if msg, err = r.Evaluate(src, dst, wdir, data, rs.Env, withFS, rs.Exec); err != nil {
+		if out, err = r.Evaluate(in, rs.Env, withFS, rs.Exec); err != nil {
 			return
 		}
-		if msg == nil {
+		if out == nil {
 			continue
 		}
 		rid = i
@@ -176,19 +176,10 @@ func (r *Rule) String() string {
 }
 
 // Evaluate a rule against input
-func (r *Rule) Evaluate(
-	src, dst, wdir, data string,
-	env map[string]string, withFS bool,
-	action Action,
-) (
-	msg *Message, err error,
+func (r *Rule) Evaluate(in *Message, env map[string]string, withFS bool, action Action) (out *Message, err error,
 ) {
 	k := NewKernel(action)
-	k.Src = src
-	k.Dst = dst
-	k.Wdir = wdir
-	k.Data = data
-	k.Ndata = len(data)
+	k.Message = *in
 	k.withFS = withFS
 
 	for _, cl := range r.Stmts {

@@ -75,7 +75,13 @@ func TestRulesEval(t *testing.T) {
 	}
 
 	for i, d := range data {
-		_, rid, err := rs.Evaluate(d[0], d[1], d[2], "", false)
+		msg := &Message{
+			Src:  d[1],
+			Dst:  d[2],
+			Wdir: "",
+			Attr: make(map[string]string),
+		}
+		_, rid, err := rs.Evaluate(msg, false)
 		if err != nil {
 			t.Fatal(err)
 		}
