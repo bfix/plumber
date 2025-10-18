@@ -66,7 +66,7 @@ func (rs *Ruleset) String() string {
 	for k, v := range rs.Env {
 		buf.WriteString(fmt.Sprintf("%s = %s\n", k, v))
 	}
-	buf.WriteString("\n# rules\n")
+	buf.WriteString("\n# rules\n\n")
 	for _, r := range rs.Rules {
 		buf.WriteString(r.String() + "\n\n")
 	}

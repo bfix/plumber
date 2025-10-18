@@ -53,6 +53,7 @@ func NewRulesFile(s *proto.Stat, plmb *lib.Plumber) *RulesFile {
 	return &RulesFile{
 		BaseFile: *fs.NewBaseFile(s),
 		content:  make(map[uint64][]byte),
+		plmb:     plmb,
 	}
 }
 

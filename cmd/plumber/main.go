@@ -51,7 +51,3 @@ func main() {
 	srv := NamespaceServer(plmb)
 	RunService(srv)
 }
-
-func exec(msg *lib.Message, verb, data string) (ok bool) {
-	return
-}

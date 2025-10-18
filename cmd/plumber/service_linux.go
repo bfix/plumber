@@ -22,9 +22,34 @@
 
 package main
 
-import "github.com/knusbaum/go9p"
+import (
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/bfix/gospel/logger"
+	"github.com/knusbaum/go9p"
+)
 
 // RunService (on Linux)
 func RunService(srv go9p.Srv) {
-	go9p.Serve("0.0.0.0:3124", srv)
+	go go9p.Serve("0.0.0.0:3124", srv)
+
+	// handle OS signals
+	sigCh := make(chan os.Signal, 5)
+	signal.Notify(sigCh)
+loop:
+	for sig := range sigCh {
+		switch sig {
+		case syscall.SIGKILL, syscall.SIGINT, syscall.SIGTERM:
+			logger.Printf(logger.INFO, "Terminating service (on signal '%s')\n", sig)
+			break loop
+		case syscall.SIGHUP:
+			logger.Println(logger.INFO, "SIGHUP")
+		case syscall.SIGURG:
+			// TODO: https://github.com/golang/go/issues/37942
+		default:
+			logger.Println(logger.INFO, "Unhandled signal: "+sig.String())
+		}
+	}
 }
