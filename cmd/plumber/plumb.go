@@ -20,35 +20,8 @@
 
 package main
 
-import (
-	"io"
-	"log"
+import "github.com/bfix/plumber/lib"
 
-	"github.com/bfix/plumber/lib"
-)
-
-// Plumber
-type Plumber struct {
-	rs *lib.Ruleset
-}
-
-// ParseRuleset from a reader
-func (p *Plumber) ParseRuleset(rdr io.Reader) (err error) {
-	p.rs, err = lib.ParseRuleset(rdr)
-	p.rs.Exec = p.Action
+func PlumbAction(msg *lib.Message, verb, data string) (ok, done bool) {
 	return
-}
-
-func (p *Plumber) Action(msg *lib.Message, verb, data string) (ok bool) {
-	log.Printf("==> %s %s", verb, lib.Quote(data))
-	log.Printf("    Attr: %s", msg.GetAttr())
-	ok = true
-	return
-}
-
-// Eval runs evaluation of data based on defined rules
-func (p *Plumber) Eval(data string) error {
-	log.Printf("<== %s", data)
-	_, _, err := p.rs.Evaluate(data, "", "", "", false)
-	return err
 }

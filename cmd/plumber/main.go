@@ -21,10 +21,7 @@
 package main
 
 import (
-	"bufio"
 	"flag"
-	"fmt"
-	"io"
 	"log"
 	"os"
 
@@ -32,17 +29,15 @@ import (
 )
 
 func main() {
+	// handle command-line options
 	var rules string
-	flag.StringVar(&rules, "r", "", "name of ruleset")
+	var foreground bool
+	flag.BoolVar(&foreground, "f", false, "run in foreground")
+	flag.StringVar(&rules, "p", "", "plumbing file")
 	flag.Parse()
 
-	exec := func(msg *lib.Message, verb, data string) (ok, done bool) {
-		log.Printf("==> %s %s", verb, lib.Quote(data))
-		log.Printf("    Attr: %s", msg.GetAttr())
-		ok = true
-		return
-	}
-	plmb := lib.NewPlumber(exec)
+	// prepare plumber and load ruleset
+	plmb := lib.NewPlumber(PlumbAction)
 	f, err := os.Open(rules)
 	if err != nil {
 		log.Fatal(err)
@@ -52,22 +47,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	rdr := bufio.NewReader(os.Stdin)
-	for {
-		fmt.Println("Enter text to plumb:")
-		data, _, err := rdr.ReadLine()
-		if err != nil {
-			if err == io.EOF {
-				err = nil
-				break
-			}
-			log.Fatal(err)
-		}
-		line := string(data)
+	// build plumber namespace and post/start server
+	srv := NamespaceServer(plmb)
+	RunService(srv)
+}
 
-		log.Printf("<== %s", line)
-		if err = plmb.Eval(line, "", "", ""); err != nil {
-			log.Fatal(err)
-		}
-	}
+func exec(msg *lib.Message, verb, data string) (ok bool) {
+	return
 }

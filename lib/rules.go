@@ -29,6 +29,7 @@ package lib
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"strings"
@@ -56,6 +57,20 @@ func (rs *Ruleset) Evaluate(data, src, dst, wdir string, withFS bool) (msg *Mess
 		break
 	}
 	return
+}
+
+// String returns the active ruleset as string
+func (rs *Ruleset) String() string {
+	buf := new(bytes.Buffer)
+	buf.WriteString("# active plumbing ruleset\n\n")
+	for k, v := range rs.Env {
+		buf.WriteString(fmt.Sprintf("%s = %s\n", k, v))
+	}
+	buf.WriteString("\n# rules\n")
+	for _, r := range rs.Rules {
+		buf.WriteString(r.String() + "\n\n")
+	}
+	return buf.String()
 }
 
 // ParseRuleset reads a list of rules and environment settings from a reader
@@ -174,12 +189,15 @@ func (r *Rule) Evaluate(
 	k.withFS = withFS
 
 	for _, cl := range r.Stmts {
-		var ok bool
-		if ok, err = k.Execute(cl, env); err != nil {
+		var ok, done bool
+		if ok, done, err = k.Execute(cl, env); err != nil {
 			return
 		}
 		if !ok {
 			return nil, nil
+		}
+		if done {
+			break
 		}
 	}
 	return &k.Message, nil

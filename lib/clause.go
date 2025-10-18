@@ -81,7 +81,7 @@ func (cl *Clause) String() string {
 }
 
 // Action triggered by object "plumb"
-type Action func(msg *Message, verb, data string) bool
+type Action func(msg *Message, verb, data string) (ok bool, done bool)
 
 // Kernel is the environment for executing clauses against input data
 type Kernel struct {
@@ -121,7 +121,7 @@ func (k *Kernel) Get(name string) (string, error) {
 }
 
 // Execute a clause with the given environment in the kernel
-func (k *Kernel) Execute(cl *Clause, env map[string]string) (ok bool, err error) {
+func (k *Kernel) Execute(cl *Clause, env map[string]string) (ok bool, done bool, err error) {
 	// currently only text data (maybe encoded ;)
 	k.Type = "text"
 
@@ -195,7 +195,7 @@ func (k *Kernel) Execute(cl *Clause, env map[string]string) (ok bool, err error)
 	case "to", "start", "client":
 		ok = true
 		if k.plumb != nil {
-			ok = k.plumb(&k.Message, cl.Verb, data)
+			ok, done = k.plumb(&k.Message, cl.Verb, data)
 		}
 	default:
 		err = fmt.Errorf("not implemented: '%s'", cl)

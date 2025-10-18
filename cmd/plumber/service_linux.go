@@ -1,3 +1,5 @@
+//go:build linux
+
 //----------------------------------------------------------------------
 // This file is part of plumber.
 // Copyright (C) 2024-present Bernd Fix   >Y<
@@ -20,54 +22,9 @@
 
 package main
 
-import (
-	"bufio"
-	"flag"
-	"fmt"
-	"io"
-	"log"
-	"os"
+import "github.com/knusbaum/go9p"
 
-	"github.com/bfix/plumber/lib"
-)
-
-func main() {
-	var rules string
-	flag.StringVar(&rules, "r", "", "name of ruleset")
-	flag.Parse()
-
-	exec := func(msg *lib.Message, verb, data string) (ok, done bool) {
-		log.Printf("==> %s %s", verb, lib.Quote(data))
-		log.Printf("    Attr: %s", msg.GetAttr())
-		ok = true
-		return
-	}
-	plmb := lib.NewPlumber(exec)
-	f, err := os.Open(rules)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-	if err = plmb.ParseRuleset(f); err != nil {
-		log.Fatal(err)
-	}
-
-	rdr := bufio.NewReader(os.Stdin)
-	for {
-		fmt.Println("Enter text to plumb:")
-		data, _, err := rdr.ReadLine()
-		if err != nil {
-			if err == io.EOF {
-				err = nil
-				break
-			}
-			log.Fatal(err)
-		}
-		line := string(data)
-
-		log.Printf("<== %s", line)
-		if err = plmb.Eval(line, "", "", ""); err != nil {
-			log.Fatal(err)
-		}
-	}
+// RunService (on Linux)
+func RunService(srv go9p.Srv) {
+	go9p.Serve("0.0.0.0:3124", srv)
 }

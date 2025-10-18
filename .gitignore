@@ -1,2 +1,5 @@
 /.vscode/
 /rules/*.test
+/plumb-sim
+/plumber
+

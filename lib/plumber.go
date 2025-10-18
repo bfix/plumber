@@ -18,56 +18,53 @@
 // SPDX-License-Identifier: AGPL3.0-or-later
 //----------------------------------------------------------------------
 
-package main
+package lib
 
 import (
-	"bufio"
-	"flag"
-	"fmt"
 	"io"
-	"log"
-	"os"
-
-	"github.com/bfix/plumber/lib"
 )
 
-func main() {
-	var rules string
-	flag.StringVar(&rules, "r", "", "name of ruleset")
-	flag.Parse()
+// Plumber
+type Plumber struct {
+	rs    *Ruleset
+	exec  Action
+	rules []byte
+}
 
-	exec := func(msg *lib.Message, verb, data string) (ok, done bool) {
-		log.Printf("==> %s %s", verb, lib.Quote(data))
-		log.Printf("    Attr: %s", msg.GetAttr())
-		ok = true
-		return
+func NewPlumber(call Action) *Plumber {
+	return &Plumber{
+		exec:  call,
+		rules: []byte{},
 	}
-	plmb := lib.NewPlumber(exec)
-	f, err := os.Open(rules)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-	if err = plmb.ParseRuleset(f); err != nil {
-		log.Fatal(err)
-	}
+}
 
-	rdr := bufio.NewReader(os.Stdin)
-	for {
-		fmt.Println("Enter text to plumb:")
-		data, _, err := rdr.ReadLine()
-		if err != nil {
-			if err == io.EOF {
-				err = nil
-				break
-			}
-			log.Fatal(err)
-		}
-		line := string(data)
+// ParseRuleset from a reader
+func (p *Plumber) ParseRuleset(rdr io.Reader) (err error) {
+	p.rs, err = ParseRuleset(rdr)
+	p.rs.Exec = p.exec
+	p.rules = []byte(p.rs.String())
+	return
+}
 
-		log.Printf("<== %s", line)
-		if err = plmb.Eval(line, "", "", ""); err != nil {
-			log.Fatal(err)
-		}
+func (p *Plumber) Rules() []byte {
+	return p.rules
+}
+
+// Eval runs evaluation of data based on defined rules
+func (p *Plumber) Eval(data, src, dst, wdir string) error {
+	_, _, err := p.rs.Evaluate(data, src, dst, wdir, false)
+	return err
+}
+
+func (p *Plumber) ReadRules(ofs uint64, num uint32) ([]byte, error) {
+	count := uint64(len(p.rules))
+	if ofs > count-1 {
+		return []byte{}, nil
 	}
+	n := min(count, ofs+uint64(num))
+	return p.rules[ofs:n], nil
+}
+
+func (p *Plumber) WriteRules(ofs uint64, data []byte) (uint32, error) {
+	return uint32(len(data)), nil
 }
