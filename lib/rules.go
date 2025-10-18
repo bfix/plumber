@@ -74,10 +74,13 @@ func (rs *Ruleset) String() string {
 }
 
 // ParseRuleset reads a list of rules and environment settings from a reader
-func ParseRuleset(in io.Reader) (rs *Ruleset, err error) {
+func ParseRuleset(in io.Reader, env map[string]string) (rs *Ruleset, err error) {
+	if env == nil {
+		env = make(map[string]string)
+	}
 	rs = &Ruleset{
 		Rules: make([]*Rule, 0),
-		Env:   make(map[string]string),
+		Env:   env,
 	}
 	// read rules as a list of multi-line strings
 	var list []string

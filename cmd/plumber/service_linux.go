@@ -33,7 +33,11 @@ import (
 
 // RunService (on Linux)
 func RunService(srv go9p.Srv) {
-	go go9p.Serve("0.0.0.0:3124", srv)
+	go func() {
+		if err := go9p.Serve("0.0.0.0:3124", srv); err != nil {
+			logger.Println(logger.CRITICAL, "can't start service: "+err.Error())
+		}
+	}()
 
 	// handle OS signals
 	sigCh := make(chan os.Signal, 5)

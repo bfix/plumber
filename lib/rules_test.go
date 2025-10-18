@@ -39,7 +39,7 @@ func getRuleset(fname string) (rs *Ruleset, err error) {
 	}
 	defer f.Close()
 
-	return ParseRuleset(f)
+	return ParseRuleset(f, nil)
 }
 
 func TestRulesInOut(t *testing.T) {

@@ -24,6 +24,7 @@ import (
 	"bytes"
 	"errors"
 
+	"github.com/bfix/gospel/logger"
 	"github.com/bfix/plumber/lib"
 	"github.com/knusbaum/go9p"
 	"github.com/knusbaum/go9p/fs"
@@ -57,23 +58,29 @@ func NewRulesFile(s *proto.Stat, plmb *lib.Plumber) *RulesFile {
 	}
 }
 
+func (f *RulesFile) Stat() proto.Stat {
+	s := f.BaseFile.Stat()
+	l := uint64(len(f.plmb.Rules()))
+	logger.Printf(logger.DBG, "Stat{length: %d -> %d}", s.Length, l)
+	s.Length = l
+	f.WriteStat(&s)
+	return s
+}
+
 func (f *RulesFile) Open(fid uint64, omode proto.Mode) error {
 	f.Lock()
 	defer f.Unlock()
+	logger.Printf(logger.DBG, "Open{fid:%d,omode=%v}", fid, omode)
 
 	f.mode = omode
-	switch omode {
-	case proto.Oread, proto.Ordwr:
-		f.content[fid] = f.plmb.Rules()
-	case proto.Owrite:
-		f.content[fid] = []byte{}
-	}
+	f.content[fid] = f.plmb.Rules()
 	return nil
 }
 
 func (f *RulesFile) Read(fid uint64, ofs uint64, count uint64) ([]byte, error) {
 	f.RLock()
 	defer f.RUnlock()
+	logger.Printf(logger.DBG, "Read{fid:%d,ofs:%d,cnt:%d}", fid, ofs, count)
 
 	data := f.content[fid]
 	flen := uint64(len(data))
@@ -89,10 +96,11 @@ func (f *RulesFile) Read(fid uint64, ofs uint64, count uint64) ([]byte, error) {
 func (f *RulesFile) Write(fid uint64, ofs uint64, buf []byte) (uint32, error) {
 	f.RLock()
 	defer f.RUnlock()
+	logger.Printf(logger.DBG, "Write{fid:%d,ofs:%d,buf:[%d]}", fid, ofs, len(buf))
 
 	data := f.content[fid]
 	flen := uint64(len(data))
-	if ofs >= flen {
+	if ofs > flen {
 		return 0, errors.New("write beyond eof")
 	}
 	f.content[fid] = append(data[:ofs], buf...)
@@ -100,17 +108,19 @@ func (f *RulesFile) Write(fid uint64, ofs uint64, buf []byte) (uint32, error) {
 }
 
 func (f *RulesFile) Close(fid uint64) (err error) {
+	logger.Printf(logger.DBG, "Close{fid:%d}", fid)
 	switch f.mode {
 	case proto.Oread:
 		// no action
 	case proto.Owrite:
 		data := f.content[fid]
 		rdr := bytes.NewBuffer(data)
-		err = f.plmb.ParseRuleset(rdr)
+		err = f.plmb.ParseRuleset(rdr, nil)
 	case proto.Ordwr:
 		data := append(f.content[fid], f.plmb.Rules()...)
+		env := f.plmb.Env()
 		rdr := bytes.NewBuffer(data)
-		err = f.plmb.ParseRuleset(rdr)
+		err = f.plmb.ParseRuleset(rdr, env)
 	}
 	delete(f.content, fid)
 	return

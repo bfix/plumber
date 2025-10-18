@@ -39,8 +39,8 @@ func NewPlumber(call Action) *Plumber {
 }
 
 // ParseRuleset from a reader
-func (p *Plumber) ParseRuleset(rdr io.Reader) (err error) {
-	p.rs, err = ParseRuleset(rdr)
+func (p *Plumber) ParseRuleset(rdr io.Reader, env map[string]string) (err error) {
+	p.rs, err = ParseRuleset(rdr, env)
 	p.rs.Exec = p.exec
 	p.rules = []byte(p.rs.String())
 	return
@@ -48,6 +48,10 @@ func (p *Plumber) ParseRuleset(rdr io.Reader) (err error) {
 
 func (p *Plumber) Rules() []byte {
 	return p.rules
+}
+
+func (p *Plumber) Env() map[string]string {
+	return p.rs.Env
 }
 
 // Eval runs evaluation of data based on defined rules

@@ -25,6 +25,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/bfix/gospel/logger"
 	"github.com/bfix/plumber/lib"
 )
 
@@ -36,6 +37,10 @@ func main() {
 	flag.StringVar(&rules, "p", "", "plumbing file")
 	flag.Parse()
 
+	// setup logging
+	logger.SetLogLevelFromName("DBG")
+	logger.UseFormat(logger.ColorFormat)
+
 	// prepare plumber and load ruleset
 	plmb := lib.NewPlumber(PlumbAction)
 	f, err := os.Open(rules)
@@ -43,7 +48,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer f.Close()
-	if err = plmb.ParseRuleset(f); err != nil {
+	if err = plmb.ParseRuleset(f, nil); err != nil {
 		log.Fatal(err)
 	}
 
