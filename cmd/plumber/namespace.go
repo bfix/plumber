@@ -171,7 +171,9 @@ func (f *SendFile) Write(fid uint64, ofs uint64, buf []byte) (uint32, error) {
 
 func (f *SendFile) Close(fid uint64) (err error) {
 	data := f.content[fid]
-	f.plmb.Eval(string(data), "", "", "")
+	var msg *lib.Message
+	msg, err = lib.ParseMessage(string(data))
+	f.plmb.Process(msg)
 	delete(f.content, fid)
 	return
 }

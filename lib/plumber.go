@@ -60,6 +60,10 @@ func (p *Plumber) Eval(data, src, dst, wdir string) error {
 	return err
 }
 
+func (p *Plumber) Process(msg *Message) error {
+	return p.Eval(msg.Data, msg.Src, msg.Dst, msg.Wdir)
+}
+
 func (p *Plumber) ReadRules(ofs uint64, num uint32) ([]byte, error) {
 	count := uint64(len(p.rules))
 	if ofs > count-1 {
