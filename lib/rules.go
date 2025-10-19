@@ -64,7 +64,7 @@ func (rs *Ruleset) String() string {
 	buf := new(bytes.Buffer)
 	buf.WriteString("# active plumbing ruleset\n\n")
 	for k, v := range rs.Env {
-		buf.WriteString(fmt.Sprintf("%s = %s\n", k, v))
+		fmt.Fprintf(buf, "%s = %s\n", k, v)
 	}
 	buf.WriteString("\n# rules\n\n")
 	for _, r := range rs.Rules {

@@ -31,16 +31,17 @@ import (
 	"github.com/knusbaum/go9p/proto"
 )
 
+// Service handling the plumbing namespace
 type Service struct {
-	srv   go9p.Srv
-	fs    *fs.FS
-	root  *fs.StaticDir
-	plmb  *lib.Plumber
-	ports map[string]*PortFile
+	srv   go9p.Srv             // 9P server
+	fs    *fs.FS               // synth. filesystem
+	root  *fs.StaticDir        // root folder
+	plmb  *lib.Plumber         // reference to plumber
+	ports map[string]*PortFile // list of plumbing ports
 }
 
-// NamespaceServer for plumber
-func NamespaceServer(pl *lib.Plumber) *Service {
+// NamespaceService returns a service instance
+func NamespaceService(pl *lib.Plumber) *Service {
 	service := &Service{
 		plmb:  pl,
 		ports: make(map[string]*PortFile),
@@ -55,6 +56,8 @@ func NamespaceServer(pl *lib.Plumber) *Service {
 	return service
 }
 
+// SyncPorts after ruleset changes. New ports are created, but unused ports
+// are not removed from the filesystem.
 func (s *Service) SyncPorts() {
 	for _, name := range s.plmb.Ports() {
 		if _, ok := s.ports[name]; !ok {
@@ -65,6 +68,7 @@ func (s *Service) SyncPorts() {
 	}
 }
 
+// FeedPort post a message on the specified port.
 func (s *Service) FeedPort(name string, msg *lib.Message) bool {
 	f, ok := s.ports[name]
 	if !ok {
@@ -75,15 +79,20 @@ func (s *Service) FeedPort(name string, msg *lib.Message) bool {
 
 //----------------------------------------------------------------------
 
+// RuleFile ('/mnt/plumb/rules')
+// - Writing new ruleset
+// - Appending new rule
+// - Reading current ruleset
 type RulesFile struct {
 	fs.BaseFile
 
-	content   map[uint64][]byte
-	plmb      *lib.Plumber
-	mode      proto.Mode
-	syncPorts func()
+	content   map[uint64][]byte // fid-mapped content
+	plmb      *lib.Plumber      // reference to plumber instance
+	mode      proto.Mode        // open mode: read/write
+	syncPorts func()            // sync ports after ruleset changes
 }
 
+// NewRulesFile creates a new filesystem node for rules
 func NewRulesFile(s *proto.Stat, plmb *lib.Plumber, sync func()) *RulesFile {
 	return &RulesFile{
 		BaseFile:  *fs.NewBaseFile(s),
@@ -93,15 +102,17 @@ func NewRulesFile(s *proto.Stat, plmb *lib.Plumber, sync func()) *RulesFile {
 	}
 }
 
+// Stat returns the current file stats
 func (f *RulesFile) Stat() proto.Stat {
 	s := f.BaseFile.Stat()
 	l := uint64(len(f.plmb.Rules()))
 	//logger.Printf(logger.DBG, "Stat{length: %d -> %d}", s.Length, l)
-	s.Length = l
+	s.Length = l // adjust file size to content
 	f.WriteStat(&s)
 	return s
 }
 
+// Open file with given mode
 func (f *RulesFile) Open(fid uint64, omode proto.Mode) error {
 	f.Lock()
 	defer f.Unlock()
@@ -112,6 +123,7 @@ func (f *RulesFile) Open(fid uint64, omode proto.Mode) error {
 	return nil
 }
 
+// Read specified range from file
 func (f *RulesFile) Read(fid uint64, ofs uint64, count uint64) ([]byte, error) {
 	f.RLock()
 	defer f.RUnlock()
@@ -120,14 +132,14 @@ func (f *RulesFile) Read(fid uint64, ofs uint64, count uint64) ([]byte, error) {
 	data := f.content[fid]
 	flen := uint64(len(data))
 	if ofs >= flen {
+		// no (more) content
 		return []byte{}, nil
 	}
-	if ofs+count > flen {
-		count = flen - ofs
-	}
-	return data[ofs : ofs+count], nil
+	last := min(ofs+count, flen)
+	return data[ofs:last], nil
 }
 
+// Write data to file at given position
 func (f *RulesFile) Write(fid uint64, ofs uint64, buf []byte) (uint32, error) {
 	f.RLock()
 	defer f.RUnlock()
@@ -142,6 +154,7 @@ func (f *RulesFile) Write(fid uint64, ofs uint64, buf []byte) (uint32, error) {
 	return uint32(len(buf)), nil
 }
 
+// Close file and parse written content
 func (f *RulesFile) Close(fid uint64) (err error) {
 	//logger.Printf(logger.DBG, "Close{fid:%d}", fid)
 	switch f.mode {
@@ -152,12 +165,6 @@ func (f *RulesFile) Close(fid uint64) (err error) {
 		rdr := bytes.NewBuffer(data)
 		err = f.plmb.ParseRuleset(rdr, nil)
 		f.syncPorts()
-	case proto.Ordwr:
-		data := append(f.content[fid], f.plmb.Rules()...)
-		env := f.plmb.Env()
-		rdr := bytes.NewBuffer(data)
-		err = f.plmb.ParseRuleset(rdr, env)
-		f.syncPorts()
 	}
 	delete(f.content, fid)
 	return
@@ -165,13 +172,16 @@ func (f *RulesFile) Close(fid uint64) (err error) {
 
 //----------------------------------------------------------------------
 
+// SendFile ('/mnt/plumb/send') is a write-only file that receives plumbing
+// messages to be processed by this plumber.
 type SendFile struct {
 	fs.BaseFile
 
-	content map[uint64][]byte
-	plmb    *lib.Plumber
+	content map[uint64][]byte // fid-mapped content
+	plmb    *lib.Plumber      // reference to plumber instance
 }
 
+// NewSendFile creates a new filesystem node for receiving plumb messages
 func NewSendFile(s *proto.Stat, plmb *lib.Plumber) *SendFile {
 	return &SendFile{
 		BaseFile: *fs.NewBaseFile(s),
@@ -179,16 +189,20 @@ func NewSendFile(s *proto.Stat, plmb *lib.Plumber) *SendFile {
 	}
 }
 
+// Open file for writing only
 func (f *SendFile) Open(fid uint64, omode proto.Mode) (err error) {
 	f.Lock()
 	defer f.Unlock()
 
 	if omode == proto.Owrite {
 		f.content[fid] = []byte{}
+	} else {
+		err = errors.New("file is write-only")
 	}
 	return
 }
 
+// Write data to file at given position
 func (f *SendFile) Write(fid uint64, ofs uint64, buf []byte) (uint32, error) {
 	f.RLock()
 	defer f.RUnlock()
@@ -203,6 +217,7 @@ func (f *SendFile) Write(fid uint64, ofs uint64, buf []byte) (uint32, error) {
 
 }
 
+// Close file and process content (message)
 func (f *SendFile) Close(fid uint64) (err error) {
 	data := f.content[fid]
 	var msg *lib.Message
@@ -214,54 +229,36 @@ func (f *SendFile) Close(fid uint64) (err error) {
 
 //----------------------------------------------------------------------
 
-type Content struct {
-	skipped uint64
-	buf     []byte
-}
-
-func NewContent() *Content {
-	return &Content{
-		skipped: 0,
-		buf:     []byte{},
-	}
-}
-
-func (c *Content) Get(ofs uint64, count uint64, post chan []byte) (data []byte, err error) {
-	flen := uint64(len(c.buf))
-	ofs -= c.skipped
-	if ofs >= flen {
-		c.skipped += flen
-		ofs -= flen
-		c.buf = <-post
-		flen = uint64(len(c.buf))
-	}
-	last := min(ofs+count, flen)
-	return c.buf[ofs:last], nil
-}
-
+// PortFile ('/mnt/plumb/<portname>') is a read-only file where the plumber
+// publishes messages to readers.
 type PortFile struct {
 	fs.BaseFile
 
-	content map[uint64]*Content
-	post    chan []byte
+	skipped map[uint64]uint64 // fid-mapped skips
+	buf     []byte            // current content
+	post    chan []byte       // channel for posting messages
 }
 
+// NewPortFile initializes a new port instance
 func NewPortFile(s *proto.Stat) *PortFile {
 	return &PortFile{
 		BaseFile: *fs.NewBaseFile(s),
-		content:  make(map[uint64]*Content),
+		skipped:  make(map[uint64]uint64),
+		buf:      []byte{},
 		post:     make(chan []byte),
 	}
 }
 
+// Post a message on the port (only if we have readers)
 func (f *PortFile) Post(msg *lib.Message) bool {
-	if len(f.content) == 0 {
+	if len(f.skipped) == 0 {
 		return false
 	}
 	f.post <- []byte(msg.String())
 	return true
 }
 
+// Open port file for reading
 func (f *PortFile) Open(fid uint64, omode proto.Mode) (err error) {
 	f.Lock()
 	defer f.Unlock()
@@ -270,23 +267,38 @@ func (f *PortFile) Open(fid uint64, omode proto.Mode) (err error) {
 	if omode == proto.Owrite {
 		return errors.New("can't write file")
 	}
-	f.content[fid] = NewContent()
+	f.skipped[fid] = 0
 	return
 }
 
+// Read data at given position from port file
 func (f *PortFile) Read(fid uint64, ofs uint64, count uint64) ([]byte, error) {
 	f.RLock()
 	defer f.RUnlock()
 
-	ct := f.content[fid]
-	data, err := ct.Get(ofs, count, f.post)
+	skipped := f.skipped[fid]
+	if ofs < skipped {
+		return []byte{}, errors.New("read out of sync")
+	}
+	ofs -= skipped
+
+	flen := uint64(len(f.buf))
+	if ofs >= flen {
+		f.skipped[fid] += flen
+		ofs -= flen
+		f.buf = <-f.post
+		flen = uint64(len(f.buf))
+	}
+	last := min(ofs+count, flen)
+	data := f.buf[ofs:last]
 	logger.Printf(logger.DBG, "Read{fid:%d,ofs:%d,cnt:%d} -> [%d]", fid, ofs, count, len(data))
-	return data, err
+	return data, nil
 }
 
+// Close port file
 func (f *PortFile) Close(fid uint64) (err error) {
 	logger.Printf(logger.DBG, "Close{fid:%d}", fid)
 
-	delete(f.content, fid)
+	delete(f.skipped, fid)
 	return
 }

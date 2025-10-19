@@ -31,10 +31,8 @@ import (
 
 func main() {
 	// handle command-line options
-	var rules string
-	var foreground bool
-	flag.BoolVar(&foreground, "f", false, "run in foreground")
-	flag.StringVar(&rules, "p", "", "plumbing file")
+	flag.Bool("f", false, "run in foreground")
+	rules := flag.String("p", "", "plumbing file")
 	flag.Parse()
 
 	// setup logging
@@ -44,7 +42,7 @@ func main() {
 	// prepare plumber and load ruleset
 	action := new(PlumbAction)
 	plmb := lib.NewPlumber(action.Process)
-	f, err := os.Open(rules)
+	f, err := os.Open(*rules)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -54,7 +52,7 @@ func main() {
 	}
 
 	// build plumber namespace and post/start server
-	ns := NamespaceServer(plmb)
+	ns := NamespaceService(plmb)
 	action.srv = ns
 	RunService(ns.srv)
 }

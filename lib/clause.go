@@ -106,10 +106,6 @@ func NewKernel(a Action) *Kernel {
 	}
 }
 
-func (k *Kernel) lookup(name string) string {
-	return name
-}
-
 // Get a variable value from kernel
 func (k *Kernel) Get(name string) (string, error) {
 	switch name {
@@ -136,8 +132,7 @@ func (k *Kernel) Execute(cl *Clause, env map[string]string) (ok bool, done bool,
 	ok = false
 	switch cl.Verb {
 	case "matches":
-		uqd := Unquote(data, k.lookup)
-		if k.re, err = regexp.Compile(uqd); err != nil {
+		if k.re, err = regexp.Compile(data); err != nil {
 			break
 		}
 		matches := k.re.FindAllStringSubmatch(obj, -1)
@@ -208,7 +203,9 @@ func (k *Kernel) Execute(cl *Clause, env map[string]string) (ok bool, done bool,
 func (k *Kernel) expand(s string, env map[string]string) string {
 	lookup := func(name string) string {
 		if i, err := strconv.Atoi(name); err == nil {
-			return k.dollar[i]
+			if i >= 0 && i < len(k.dollar) {
+				return k.dollar[i]
+			}
 		}
 		if v, err := k.Get(name); err == nil {
 			return v

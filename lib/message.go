@@ -47,6 +47,7 @@ type Message struct {
 	Data  string
 }
 
+// NewMessage creates a message with the specified parameters
 func NewMessage(src, dst, wdir, typ, data string) *Message {
 	return &Message{
 		Src:   src,

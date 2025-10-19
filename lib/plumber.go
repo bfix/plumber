@@ -31,6 +31,7 @@ type Plumber struct {
 	rules []byte
 }
 
+// NewPlumber creates a new plumber instance
 func NewPlumber(call Action) *Plumber {
 	return &Plumber{
 		exec:  call,
@@ -46,6 +47,7 @@ func (p *Plumber) ParseRuleset(rdr io.Reader, env map[string]string) (err error)
 	return
 }
 
+// Ports returns a list of all ports referenced in the current ruleset
 func (p *Plumber) Ports() (list []string) {
 	for _, r := range p.rs.Rules {
 		for _, c := range r.Stmts {
@@ -57,10 +59,12 @@ func (p *Plumber) Ports() (list []string) {
 	return
 }
 
+// Rules returns the current ruleset as a byte array
 func (p *Plumber) Rules() []byte {
 	return p.rules
 }
 
+// Env returns the current environment from the ruleset
 func (p *Plumber) Env() map[string]string {
 	return p.rs.Env
 }
@@ -78,20 +82,8 @@ func (p *Plumber) Eval(data, src, dst, wdir string) error {
 	return err
 }
 
+// Process a plumbing message
 func (p *Plumber) Process(msg *Message) error {
 	_, _, err := p.rs.Evaluate(msg, false)
 	return err
-}
-
-func (p *Plumber) ReadRules(ofs uint64, num uint32) ([]byte, error) {
-	count := uint64(len(p.rules))
-	if ofs > count-1 {
-		return []byte{}, nil
-	}
-	n := min(count, ofs+uint64(num))
-	return p.rules[ofs:n], nil
-}
-
-func (p *Plumber) WriteRules(ofs uint64, data []byte) (uint32, error) {
-	return uint32(len(data)), nil
 }

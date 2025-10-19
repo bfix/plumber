@@ -22,10 +22,14 @@ package main
 
 import "github.com/bfix/plumber/lib"
 
+// PlumbAction to process rules with "plumb" clauses
 type PlumbAction struct {
-	srv *Service
+	srv *Service // reference to namespace service
 }
 
+// Process a message according to verb.
+// 'ok' is true if the clause executes without failure/mismatch
+// 'done' is true if this action terminates the rule
 func (a *PlumbAction) Process(msg *lib.Message, verb, data string) (ok, done bool) {
 	if verb == "to" {
 		ok = true
