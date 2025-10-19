@@ -63,7 +63,7 @@ func NewMessage(src, dst, wdir, typ, data string) *Message {
 // ParseMessage from multi-line string
 func ParseMessage(p string) (m *Message, err error) {
 	parts := strings.Split(p, "\n")
-	if len(parts) != 7 {
+	if len(parts) < 7 {
 		return nil, errors.New("malformed message")
 	}
 	ndata, _ := strconv.Atoi(parts[5])
