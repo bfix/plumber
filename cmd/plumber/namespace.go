@@ -230,28 +230,30 @@ func (f *SendFile) Close(fid uint64) (err error) {
 //----------------------------------------------------------------------
 
 // PortFile ('/mnt/plumb/<portname>') is a read-only file where the plumber
-// publishes messages to readers.
+// publishes messages to a single reader.
 type PortFile struct {
 	fs.BaseFile
 
-	skipped map[uint64]uint64 // fid-mapped skips
-	buf     []byte            // current content
-	post    chan []byte       // channel for posting messages
+	skipped uint64      // fid-mapped skips
+	buf     []byte      // current content
+	post    chan []byte // channel for posting messages
+	watched bool        // is someone reading this?
 }
 
 // NewPortFile initializes a new port instance
 func NewPortFile(s *proto.Stat) *PortFile {
 	return &PortFile{
 		BaseFile: *fs.NewBaseFile(s),
-		skipped:  make(map[uint64]uint64),
+		skipped:  0,
 		buf:      []byte{},
 		post:     make(chan []byte),
+		watched:  false,
 	}
 }
 
 // Post a message on the port (only if we have readers)
 func (f *PortFile) Post(msg *lib.Message) bool {
-	if len(f.skipped) == 0 {
+	if !f.watched {
 		return false
 	}
 	f.post <- []byte(msg.String())
@@ -260,6 +262,10 @@ func (f *PortFile) Post(msg *lib.Message) bool {
 
 // Open port file for reading
 func (f *PortFile) Open(fid uint64, omode proto.Mode) (err error) {
+	if f.watched {
+		return errors.New("file already in use")
+	}
+	f.watched = true
 	f.Lock()
 	defer f.Unlock()
 	logger.Printf(logger.DBG, "Open{fid:%d,omode=%v}", fid, omode)
@@ -267,7 +273,8 @@ func (f *PortFile) Open(fid uint64, omode proto.Mode) (err error) {
 	if omode == proto.Owrite {
 		return errors.New("can't write file")
 	}
-	f.skipped[fid] = 0
+	f.skipped = 0
+	f.buf = []byte{}
 	return
 }
 
@@ -276,15 +283,14 @@ func (f *PortFile) Read(fid uint64, ofs uint64, count uint64) ([]byte, error) {
 	f.RLock()
 	defer f.RUnlock()
 
-	skipped := f.skipped[fid]
-	if ofs < skipped {
+	if ofs < f.skipped {
 		return []byte{}, errors.New("read out of sync")
 	}
-	ofs -= skipped
+	ofs -= f.skipped
 
 	flen := uint64(len(f.buf))
 	if ofs >= flen {
-		f.skipped[fid] += flen
+		f.skipped += flen
 		ofs -= flen
 		f.buf = <-f.post
 		flen = uint64(len(f.buf))
@@ -298,7 +304,6 @@ func (f *PortFile) Read(fid uint64, ofs uint64, count uint64) ([]byte, error) {
 // Close port file
 func (f *PortFile) Close(fid uint64) (err error) {
 	logger.Printf(logger.DBG, "Close{fid:%d}", fid)
-
-	delete(f.skipped, fid)
+	f.watched = false
 	return
 }
