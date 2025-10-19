@@ -32,18 +32,18 @@ import (
 	"testing"
 )
 
-func getRuleset(fname string) (rs *Ruleset, err error) {
+func getRuleList(fname string) (rs *RuleList, err error) {
 	f, err := os.Open(fname)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
-	return ParseRuleset(f, nil)
+	return ParseRulesFile(f, nil)
 }
 
 func TestRulesInOut(t *testing.T) {
-	rs, err := getRuleset("../rules/plan9")
+	rs, err := getRuleList("../rules/plan9")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestRulesEval(t *testing.T) {
 		{"src/main.go:87", "", ""},
 		{"Local date", "", ""},
 	}
-	rs, err := getRuleset("../rules/plan9")
+	rs, err := getRuleList("../rules/plan9")
 	if err != nil {
 		t.Fatal(err)
 	}

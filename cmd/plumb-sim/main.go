@@ -33,7 +33,7 @@ import (
 
 func main() {
 	var rules string
-	flag.StringVar(&rules, "r", "", "name of ruleset")
+	flag.StringVar(&rules, "r", "", "name of rules file")
 	flag.Parse()
 
 	exec := func(msg *lib.Message, verb, data string) (ok, done bool) {
@@ -48,7 +48,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer f.Close()
-	if err = plmb.ParseRuleset(f, nil); err != nil {
+	if err = plmb.ParseRulesFile(f, nil); err != nil {
 		log.Fatal(err)
 	}
 

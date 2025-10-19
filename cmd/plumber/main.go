@@ -24,6 +24,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"time"
 
 	"github.com/bfix/gospel/logger"
 	"github.com/bfix/plumber/lib"
@@ -39,7 +40,7 @@ func main() {
 	logger.SetLogLevelFromName("DBG")
 	logger.UseFormat(logger.ColorFormat)
 
-	// prepare plumber and load ruleset
+	// prepare plumber and load rules file
 	action := new(PlumbAction)
 	plmb := lib.NewPlumber(action.Process)
 	f, err := os.Open(*rules)
@@ -47,12 +48,25 @@ func main() {
 		log.Fatal(err)
 	}
 	defer f.Close()
-	if err = plmb.ParseRuleset(f, nil); err != nil {
+	if err = plmb.ParseRulesFile(f, nil); err != nil {
 		log.Fatal(err)
 	}
 
 	// build plumber namespace and post/start server
 	ns := NamespaceService(plmb)
+
+	go func() {
+		msg := lib.NewMessage("plumber", "outerspace", "/home/user", "", "https://9p.sdf.org")
+		tick := time.NewTicker(30 * time.Second)
+		count := 0
+		for range tick.C {
+			if count++; count > 6 {
+				break
+			}
+			ns.FeedPort("outerspace", msg)
+		}
+	}()
+
 	action.srv = ns
 	RunService(ns.srv)
 }

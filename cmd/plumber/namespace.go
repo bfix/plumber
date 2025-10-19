@@ -56,7 +56,7 @@ func NamespaceService(pl *lib.Plumber) *Service {
 	return service
 }
 
-// SyncPorts after ruleset changes. New ports are created, but unused ports
+// SyncPorts after rule changes. New ports are created, but unused ports
 // are not removed from the filesystem.
 func (s *Service) SyncPorts() {
 	for _, name := range s.plmb.Ports() {
@@ -80,16 +80,16 @@ func (s *Service) FeedPort(name string, msg *lib.Message) bool {
 //----------------------------------------------------------------------
 
 // RuleFile ('/mnt/plumb/rules')
-// - Writing new ruleset
-// - Appending new rule
-// - Reading current ruleset
+// - Writing new rules file
+// - Appending to rules file
+// - Reading current rule file
 type RulesFile struct {
 	fs.BaseFile
 
 	content   map[uint64][]byte // fid-mapped content
 	plmb      *lib.Plumber      // reference to plumber instance
 	mode      proto.Mode        // open mode: read/write
-	syncPorts func()            // sync ports after ruleset changes
+	syncPorts func()            // sync ports after rule changes
 }
 
 // NewRulesFile creates a new filesystem node for rules
@@ -163,7 +163,7 @@ func (f *RulesFile) Close(fid uint64) (err error) {
 	case proto.Owrite:
 		data := f.content[fid]
 		rdr := bytes.NewBuffer(data)
-		err = f.plmb.ParseRuleset(rdr, nil)
+		err = f.plmb.ParseRulesFile(rdr, nil)
 		f.syncPorts()
 	}
 	delete(f.content, fid)

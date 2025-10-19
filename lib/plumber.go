@@ -26,7 +26,7 @@ import (
 
 // Plumber
 type Plumber struct {
-	rs    *Ruleset
+	rs    *RuleList
 	exec  Action
 	rules []byte
 }
@@ -39,15 +39,15 @@ func NewPlumber(call Action) *Plumber {
 	}
 }
 
-// ParseRuleset from a reader
-func (p *Plumber) ParseRuleset(rdr io.Reader, env map[string]string) (err error) {
-	p.rs, err = ParseRuleset(rdr, env)
+// ParseRulesFile from a reader
+func (p *Plumber) ParseRulesFile(rdr io.Reader, env map[string]string) (err error) {
+	p.rs, err = ParseRulesFile(rdr, env)
 	p.rs.Exec = p.exec
 	p.rules = []byte(p.rs.String())
 	return
 }
 
-// Ports returns a list of all ports referenced in the current ruleset
+// Ports returns a list of all ports referenced in the current list of rules
 func (p *Plumber) Ports() (list []string) {
 	for _, r := range p.rs.Rules {
 		for _, c := range r.Stmts {
@@ -59,12 +59,12 @@ func (p *Plumber) Ports() (list []string) {
 	return
 }
 
-// Rules returns the current ruleset as a byte array
+// Rules returns the current rules as a byte array
 func (p *Plumber) Rules() []byte {
 	return p.rules
 }
 
-// Env returns the current environment from the ruleset
+// Env returns the current environment from the rules file
 func (p *Plumber) Env() map[string]string {
 	return p.rs.Env
 }

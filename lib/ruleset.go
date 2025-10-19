@@ -35,16 +35,16 @@ import (
 	"strings"
 )
 
-// Ruleset is a list of rules and environment variables
-type Ruleset struct {
-	Rules []*Rule           // list of rules
+// RuleList is a list of rules and environment variables
+type RuleList struct {
+	Rules []*RuleSet        // list of rules
 	Env   map[string]string // environment variables
 	Exec  Action            // plumbing action
 }
 
 // Evaluate data,src,dst,wdir against all rules in set.
 // If msg is not null, rid points to the matching rule
-func (rs *Ruleset) Evaluate(in *Message, withFS bool) (out *Message, rid int, err error) {
+func (rs *RuleList) Evaluate(in *Message, withFS bool) (out *Message, rid int, err error) {
 	rid = -1
 	for i, r := range rs.Rules {
 		if out, err = r.Evaluate(in, rs.Env, withFS, rs.Exec); err != nil {
@@ -59,27 +59,27 @@ func (rs *Ruleset) Evaluate(in *Message, withFS bool) (out *Message, rid int, er
 	return
 }
 
-// String returns the active ruleset as string
-func (rs *Ruleset) String() string {
+// String returns the active rules as string
+func (rs *RuleList) String() string {
 	buf := new(bytes.Buffer)
-	buf.WriteString("# active plumbing ruleset\n\n")
+	buf.WriteString("# active plumbing rules\n\n")
 	for k, v := range rs.Env {
 		fmt.Fprintf(buf, "%s = %s\n", k, v)
 	}
-	buf.WriteString("\n# rules\n\n")
+	buf.WriteString("\n\n")
 	for _, r := range rs.Rules {
 		buf.WriteString(r.String() + "\n\n")
 	}
 	return buf.String()
 }
 
-// ParseRuleset reads a list of rules and environment settings from a reader
-func ParseRuleset(in io.Reader, env map[string]string) (rs *Ruleset, err error) {
+// ParseRulesFile reads a list of rules and environment settings from a reader
+func ParseRulesFile(in io.Reader, env map[string]string) (rs *RuleList, err error) {
 	if env == nil {
 		env = make(map[string]string)
 	}
-	rs = &Ruleset{
-		Rules: make([]*Rule, 0),
+	rs = &RuleList{
+		Rules: make([]*RuleSet, 0),
 		Env:   env,
 	}
 	// read rules as a list of multi-line strings
@@ -125,8 +125,8 @@ func ParseRuleset(in io.Reader, env map[string]string) (rs *Ruleset, err error) 
 	}
 	// parse rules
 	for _, r := range list {
-		var rule *Rule
-		if rule, err = ParseRule(r); err != nil {
+		var rule *RuleSet
+		if rule, err = ParseRuleSet(r); err != nil {
 			return
 		}
 		rs.Rules = append(rs.Rules, rule)
@@ -136,27 +136,27 @@ func ParseRuleset(in io.Reader, env map[string]string) (rs *Ruleset, err error) 
 
 //----------------------------------------------------------------------
 
-// Rule is a list of clause that are evaluated against an input
-type Rule struct {
-	Stmts []*Clause
+// RuleSet is a list of rules that are evaluated against an input
+type RuleSet struct {
+	Stmts []*Rule
 }
 
-// ParseRule parses a single rule from a multi-line string
-func ParseRule(s string) (r *Rule, err error) {
-	r = &Rule{
-		Stmts: make([]*Clause, 0),
+// ParseRuleSet parses a single rule from a multi-line string
+func ParseRuleSet(s string) (r *RuleSet, err error) {
+	r = &RuleSet{
+		Stmts: make([]*Rule, 0),
 	}
-	for _, line := range strings.Split(s, "\n") {
+	for line := range strings.SplitSeq(s, "\n") {
 		if len(line) == 0 {
 			continue
 		}
 		line = Canonical(line)
 		words := strings.SplitN(line, " ", 3)
 		if !grammer.Valid(words[0], words[1]) {
-			err = fmt.Errorf("invalid clause: '%s'", line)
+			err = fmt.Errorf("invalid rule: '%s'", line)
 			break
 		}
-		cl := &Clause{
+		cl := &Rule{
 			Obj:  words[0],
 			Verb: words[1],
 			Data: words[2],
@@ -167,7 +167,7 @@ func ParseRule(s string) (r *Rule, err error) {
 }
 
 // String returns a human-readble representation of a rule
-func (r *Rule) String() string {
+func (r *RuleSet) String() string {
 	var list []string
 	for _, c := range r.Stmts {
 		list = append(list, c.String())
@@ -176,7 +176,7 @@ func (r *Rule) String() string {
 }
 
 // Evaluate a rule against input
-func (r *Rule) Evaluate(in *Message, env map[string]string, withFS bool, action Action) (out *Message, err error,
+func (r *RuleSet) Evaluate(in *Message, env map[string]string, withFS bool, action Action) (out *Message, err error,
 ) {
 	k := NewKernel(action)
 	k.Message = *in

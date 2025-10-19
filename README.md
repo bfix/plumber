@@ -42,11 +42,11 @@ The binaries are stored in `${GOPATH}/bin`.
 
 `plumber` is a program originating from the [Plan9](https://p9f.org) operating
 system. It receives `plumb message`s from other programs, analyzes the data in
-the messages, and acts according to rules defined in a ruleset.
+the messages, and acts according to rules defined in a rules file.
 
 The rules for plumbing are loaded from a file at start-up. The format of the
 file is compatible with the Plan9 native format - with a different handling
-of regular expressions in `matches` clauses: All Plan9 regular
+of regular expressions in `matches` rules: All Plan9 regular
 expressions are supported, but this plumber also supports the RE2 syntax.
 
 ### Plumbing filesystem
@@ -56,12 +56,12 @@ is mounted at `/mnt/plumb`, these files are:
 
 #### `/mnt/plumb/rules`
 
-* Reading from this file returns the current ruleset.
+* Reading from this file returns the current list of rules.
 
-* Writing to this file creates a new ruleset.
+* Writing to this file creates a new list of rules.
 
-* Appending to this file adds new rules to the ruleset. Appending invalid data
-may break the `plumber` logic.
+* Appending to this file adds new text to the rules file. Appending invalid
+data may break the `plumber` logic.
 
 #### `/mnt/plumb/send`
 
@@ -70,7 +70,7 @@ to be analyzed and executed upon. The message format is defined by the Plan9 plu
 
 #### Ports `/mnt/plumb/<portname>`
 
-For each port referenced in the ruleset a corresponding port file is created
+For each port referenced in the list of rules a corresponding port file is created
 with the name of the port. A port cannot be named `rules`or `send`; these
 files are maintained by the plumber directly.
 

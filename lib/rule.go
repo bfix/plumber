@@ -50,7 +50,7 @@ func (g Grammer) Valid(obj, verb string) bool {
 }
 
 var (
-	// define the grammer of clauses:
+	// define the grammer of rules:
 	// object: { verb1, verb2, ...}
 	grammer = Grammer{
 		"arg":   {"isdir", "isfile"},
@@ -64,8 +64,8 @@ var (
 	}
 )
 
-// Clause to evaluate (a rule is a sequene of clauses)
-type Clause struct {
+// Rule to evaluate
+type Rule struct {
 	// Obj of action: arg|attr|data|dst|plumb|src|type|wdir
 	Obj string
 	// Verb of action: is,matches,set|add,delete|isdir,isfile|to,client,start
@@ -75,15 +75,15 @@ type Clause struct {
 	Data string
 }
 
-// String returns a human-readble clause
-func (cl *Clause) String() string {
-	return cl.Obj + " " + cl.Verb + " " + cl.Data
+// String returns a human-readble rule
+func (r *Rule) String() string {
+	return r.Obj + " " + r.Verb + " " + r.Data
 }
 
 // Action triggered by object "plumb"
 type Action func(msg *Message, verb, data string) (ok bool, done bool)
 
-// Kernel is the environment for executing clauses against input data
+// Kernel is the environment for executing rules against input data
 type Kernel struct {
 	Message
 	re     *regexp.Regexp
@@ -116,21 +116,21 @@ func (k *Kernel) Get(name string) (string, error) {
 	return k.Message.Get(name)
 }
 
-// Execute a clause with the given environment in the kernel
-func (k *Kernel) Execute(cl *Clause, env map[string]string) (ok bool, done bool, err error) {
+// Execute a rule with the given environment in the kernel
+func (k *Kernel) Execute(r *Rule, env map[string]string) (ok bool, done bool, err error) {
 	// currently only text data (maybe encoded ;)
 	k.Type = "text"
 
 	// get object and data value
 	var obj string
-	if obj, err = k.Get(cl.Obj); err != nil {
+	if obj, err = k.Get(r.Obj); err != nil {
 		return
 	}
-	data := k.expand(cl.Data, env)
+	data := k.expand(r.Data, env)
 
 	// handle verbs: the meaning of a verb is independent from the object
 	ok = false
-	switch cl.Verb {
+	switch r.Verb {
 	case "matches":
 		if k.re, err = regexp.Compile(data); err != nil {
 			break
@@ -178,7 +178,7 @@ func (k *Kernel) Execute(cl *Clause, env map[string]string) (ok bool, done bool,
 			k.vars["file"] = data
 		}
 	case "set":
-		ok = k.Set(cl.Obj, data)
+		ok = k.Set(r.Obj, data)
 	case "add":
 		maps.Copy(k.Attr, k.unpackAttr(data))
 		ok = true
@@ -190,10 +190,10 @@ func (k *Kernel) Execute(cl *Clause, env map[string]string) (ok bool, done bool,
 	case "to", "start", "client":
 		ok = true
 		if k.plumb != nil {
-			ok, done = k.plumb(&k.Message, cl.Verb, data)
+			ok, done = k.plumb(&k.Message, r.Verb, data)
 		}
 	default:
-		err = fmt.Errorf("not implemented: '%s'", cl)
+		err = fmt.Errorf("not implemented: '%s'", r)
 	}
 	k.Ndata = len(k.Data)
 	return
