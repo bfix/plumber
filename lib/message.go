@@ -129,7 +129,7 @@ func (m *Message) String() string {
 	buf.WriteString(m.GetAttr() + "\n")
 	md := m.packData()
 	buf.WriteString(fmt.Sprintf("%d\n", len(md)))
-	buf.WriteString(md)
+	buf.WriteString(md + "\n")
 	return buf.String()
 }
 
