@@ -96,7 +96,7 @@ func NewRulesFile(s *proto.Stat, plmb *lib.Plumber, sync func()) *RulesFile {
 func (f *RulesFile) Stat() proto.Stat {
 	s := f.BaseFile.Stat()
 	l := uint64(len(f.plmb.Rules()))
-	logger.Printf(logger.DBG, "Stat{length: %d -> %d}", s.Length, l)
+	//logger.Printf(logger.DBG, "Stat{length: %d -> %d}", s.Length, l)
 	s.Length = l
 	f.WriteStat(&s)
 	return s
@@ -105,7 +105,7 @@ func (f *RulesFile) Stat() proto.Stat {
 func (f *RulesFile) Open(fid uint64, omode proto.Mode) error {
 	f.Lock()
 	defer f.Unlock()
-	logger.Printf(logger.DBG, "Open{fid:%d,omode=%v}", fid, omode)
+	//logger.Printf(logger.DBG, "Open{fid:%d,omode=%v}", fid, omode)
 
 	f.mode = omode
 	f.content[fid] = f.plmb.Rules()
@@ -115,7 +115,7 @@ func (f *RulesFile) Open(fid uint64, omode proto.Mode) error {
 func (f *RulesFile) Read(fid uint64, ofs uint64, count uint64) ([]byte, error) {
 	f.RLock()
 	defer f.RUnlock()
-	logger.Printf(logger.DBG, "Read{fid:%d,ofs:%d,cnt:%d}", fid, ofs, count)
+	//logger.Printf(logger.DBG, "Read{fid:%d,ofs:%d,cnt:%d}", fid, ofs, count)
 
 	data := f.content[fid]
 	flen := uint64(len(data))
@@ -131,7 +131,7 @@ func (f *RulesFile) Read(fid uint64, ofs uint64, count uint64) ([]byte, error) {
 func (f *RulesFile) Write(fid uint64, ofs uint64, buf []byte) (uint32, error) {
 	f.RLock()
 	defer f.RUnlock()
-	logger.Printf(logger.DBG, "Write{fid:%d,ofs:%d,buf:[%d]}", fid, ofs, len(buf))
+	//logger.Printf(logger.DBG, "Write{fid:%d,ofs:%d,buf:[%d]}", fid, ofs, len(buf))
 
 	data := f.content[fid]
 	flen := uint64(len(data))
@@ -143,7 +143,7 @@ func (f *RulesFile) Write(fid uint64, ofs uint64, buf []byte) (uint32, error) {
 }
 
 func (f *RulesFile) Close(fid uint64) (err error) {
-	logger.Printf(logger.DBG, "Close{fid:%d}", fid)
+	//logger.Printf(logger.DBG, "Close{fid:%d}", fid)
 	switch f.mode {
 	case proto.Oread:
 		// no action
@@ -231,13 +231,12 @@ func (c *Content) Get(ofs uint64, count uint64, post chan []byte) (data []byte, 
 	ofs -= c.skipped
 	if ofs >= flen {
 		c.skipped += flen
+		ofs -= flen
 		c.buf = <-post
 		flen = uint64(len(c.buf))
 	}
-	if ofs+count > flen {
-		count = flen - ofs
-	}
-	return c.buf[ofs : ofs+count], nil
+	last := min(ofs+count, flen)
+	return c.buf[ofs:last], nil
 }
 
 type PortFile struct {
@@ -263,13 +262,6 @@ func (f *PortFile) Post(msg *lib.Message) bool {
 	return true
 }
 
-func (f *PortFile) Stat() proto.Stat {
-	s := f.BaseFile.Stat()
-	f.WriteStat(&s)
-	logger.Printf(logger.DBG, "Stat{length: %d}", s.Length)
-	return s
-}
-
 func (f *PortFile) Open(fid uint64, omode proto.Mode) (err error) {
 	f.Lock()
 	defer f.Unlock()
@@ -285,10 +277,11 @@ func (f *PortFile) Open(fid uint64, omode proto.Mode) (err error) {
 func (f *PortFile) Read(fid uint64, ofs uint64, count uint64) ([]byte, error) {
 	f.RLock()
 	defer f.RUnlock()
-	logger.Printf(logger.DBG, "Read{fid:%d,ofs:%d,cnt:%d}", fid, ofs, count)
 
 	ct := f.content[fid]
-	return ct.Get(ofs, count, f.post)
+	data, err := ct.Get(ofs, count, f.post)
+	logger.Printf(logger.DBG, "Read{fid:%d,ofs:%d,cnt:%d} -> [%d]", fid, ofs, count, len(data))
+	return data, err
 }
 
 func (f *PortFile) Close(fid uint64) (err error) {
