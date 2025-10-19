@@ -31,13 +31,46 @@ import (
 	"github.com/knusbaum/go9p/proto"
 )
 
-// NamespaceServer for plumber
-func NamespaceServer(pl *lib.Plumber) go9p.Srv {
+type Service struct {
+	srv   go9p.Srv
+	fs    *fs.FS
+	root  *fs.StaticDir
+	plmb  *lib.Plumber
+	ports map[string]*PortFile
+}
 
+// NamespaceServer for plumber
+func NamespaceServer(pl *lib.Plumber) *Service {
+	service := &Service{
+		plmb:  pl,
+		ports: make(map[string]*PortFile),
+	}
 	plmbFS, root := fs.NewFS("plumb", "plumb", 0775)
-	root.AddChild(NewRulesFile(plmbFS.NewStat("rules", "plumb", "plumb", 0666), pl))
+	root.AddChild(NewRulesFile(plmbFS.NewStat("rules", "plumb", "plumb", 0666), pl, service.SyncPorts))
 	root.AddChild(NewSendFile(plmbFS.NewStat("send", "plumb", "plumb", 0222), pl))
-	return plmbFS.Server()
+	service.srv = plmbFS.Server()
+	service.fs = plmbFS
+	service.root = root
+	service.SyncPorts()
+	return service
+}
+
+func (s *Service) SyncPorts() {
+	for _, name := range s.plmb.Ports() {
+		if _, ok := s.ports[name]; !ok {
+			f := NewPortFile(s.fs.NewStat(name, "plumb", "plumb", 0444))
+			s.ports[name] = f
+			s.root.AddChild(f)
+		}
+	}
+}
+
+func (s *Service) FeedPort(name string, msg *lib.Message) bool {
+	f, ok := s.ports[name]
+	if !ok {
+		return false
+	}
+	return f.Post(msg)
 }
 
 //----------------------------------------------------------------------
@@ -45,16 +78,18 @@ func NamespaceServer(pl *lib.Plumber) go9p.Srv {
 type RulesFile struct {
 	fs.BaseFile
 
-	content map[uint64][]byte
-	plmb    *lib.Plumber
-	mode    proto.Mode
+	content   map[uint64][]byte
+	plmb      *lib.Plumber
+	mode      proto.Mode
+	syncPorts func()
 }
 
-func NewRulesFile(s *proto.Stat, plmb *lib.Plumber) *RulesFile {
+func NewRulesFile(s *proto.Stat, plmb *lib.Plumber, sync func()) *RulesFile {
 	return &RulesFile{
-		BaseFile: *fs.NewBaseFile(s),
-		content:  make(map[uint64][]byte),
-		plmb:     plmb,
+		BaseFile:  *fs.NewBaseFile(s),
+		content:   make(map[uint64][]byte),
+		plmb:      plmb,
+		syncPorts: sync,
 	}
 }
 
@@ -116,11 +151,13 @@ func (f *RulesFile) Close(fid uint64) (err error) {
 		data := f.content[fid]
 		rdr := bytes.NewBuffer(data)
 		err = f.plmb.ParseRuleset(rdr, nil)
+		f.syncPorts()
 	case proto.Ordwr:
 		data := append(f.content[fid], f.plmb.Rules()...)
 		env := f.plmb.Env()
 		rdr := bytes.NewBuffer(data)
 		err = f.plmb.ParseRuleset(rdr, env)
+		f.syncPorts()
 	}
 	delete(f.content, fid)
 	return
@@ -146,11 +183,8 @@ func (f *SendFile) Open(fid uint64, omode proto.Mode) (err error) {
 	f.Lock()
 	defer f.Unlock()
 
-	switch omode {
-	case proto.Owrite, proto.Ordwr:
+	if omode == proto.Owrite {
 		f.content[fid] = []byte{}
-	default:
-		err = errors.New("can't write file")
 	}
 	return
 }
@@ -174,6 +208,92 @@ func (f *SendFile) Close(fid uint64) (err error) {
 	var msg *lib.Message
 	msg, err = lib.ParseMessage(string(data))
 	f.plmb.Process(msg)
+	delete(f.content, fid)
+	return
+}
+
+//----------------------------------------------------------------------
+
+type Content struct {
+	skipped uint64
+	buf     []byte
+}
+
+func NewContent() *Content {
+	return &Content{
+		skipped: 0,
+		buf:     []byte{},
+	}
+}
+
+func (c *Content) Get(ofs uint64, count uint64, post chan []byte) (data []byte, err error) {
+	flen := uint64(len(c.buf))
+	ofs -= c.skipped
+	if ofs >= flen {
+		c.skipped += flen
+		c.buf = <-post
+		flen = uint64(len(c.buf))
+	}
+	if ofs+count > flen {
+		count = flen - ofs
+	}
+	return c.buf[ofs : ofs+count], nil
+}
+
+type PortFile struct {
+	fs.BaseFile
+
+	content map[uint64]*Content
+	post    chan []byte
+}
+
+func NewPortFile(s *proto.Stat) *PortFile {
+	return &PortFile{
+		BaseFile: *fs.NewBaseFile(s),
+		content:  make(map[uint64]*Content),
+		post:     make(chan []byte),
+	}
+}
+
+func (f *PortFile) Post(msg *lib.Message) bool {
+	if len(f.content) == 0 {
+		return false
+	}
+	f.post <- []byte(msg.String())
+	return true
+}
+
+func (f *PortFile) Stat() proto.Stat {
+	s := f.BaseFile.Stat()
+	f.WriteStat(&s)
+	logger.Printf(logger.DBG, "Stat{length: %d}", s.Length)
+	return s
+}
+
+func (f *PortFile) Open(fid uint64, omode proto.Mode) (err error) {
+	f.Lock()
+	defer f.Unlock()
+	logger.Printf(logger.DBG, "Open{fid:%d,omode=%v}", fid, omode)
+
+	if omode == proto.Owrite {
+		return errors.New("can't write file")
+	}
+	f.content[fid] = NewContent()
+	return
+}
+
+func (f *PortFile) Read(fid uint64, ofs uint64, count uint64) ([]byte, error) {
+	f.RLock()
+	defer f.RUnlock()
+	logger.Printf(logger.DBG, "Read{fid:%d,ofs:%d,cnt:%d}", fid, ofs, count)
+
+	ct := f.content[fid]
+	return ct.Get(ofs, count, f.post)
+}
+
+func (f *PortFile) Close(fid uint64) (err error) {
+	logger.Printf(logger.DBG, "Close{fid:%d}", fid)
+
 	delete(f.content, fid)
 	return
 }

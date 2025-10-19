@@ -42,7 +42,8 @@ func main() {
 	logger.UseFormat(logger.ColorFormat)
 
 	// prepare plumber and load ruleset
-	plmb := lib.NewPlumber(PlumbAction)
+	action := new(PlumbAction)
+	plmb := lib.NewPlumber(action.Process)
 	f, err := os.Open(rules)
 	if err != nil {
 		log.Fatal(err)
@@ -53,6 +54,7 @@ func main() {
 	}
 
 	// build plumber namespace and post/start server
-	srv := NamespaceServer(plmb)
-	RunService(srv)
+	ns := NamespaceServer(plmb)
+	action.srv = ns
+	RunService(ns.srv)
 }

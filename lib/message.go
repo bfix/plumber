@@ -47,6 +47,18 @@ type Message struct {
 	Data  string
 }
 
+func NewMessage(src, dst, wdir, typ, data string) *Message {
+	return &Message{
+		Src:   src,
+		Dst:   dst,
+		Wdir:  wdir,
+		Type:  typ,
+		Data:  data,
+		Ndata: len(data),
+		Attr:  make(map[string]string),
+	}
+}
+
 // ParseMessage from multi-line string
 func ParseMessage(p string) (m *Message, err error) {
 	parts := strings.Split(p, "\n")

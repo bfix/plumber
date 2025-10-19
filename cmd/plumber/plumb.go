@@ -22,6 +22,15 @@ package main
 
 import "github.com/bfix/plumber/lib"
 
-func PlumbAction(msg *lib.Message, verb, data string) (ok, done bool) {
+type PlumbAction struct {
+	srv *Service
+}
+
+func (a *PlumbAction) Process(msg *lib.Message, verb, data string) (ok, done bool) {
+	if verb == "to" {
+		ok = true
+		done = a.srv.FeedPort(data, msg)
+		return
+	}
 	return
 }

@@ -46,6 +46,17 @@ func (p *Plumber) ParseRuleset(rdr io.Reader, env map[string]string) (err error)
 	return
 }
 
+func (p *Plumber) Ports() (list []string) {
+	for _, r := range p.rs.Rules {
+		for _, c := range r.Stmts {
+			if c.Obj == "plumb" && c.Verb == "to" {
+				list = append(list, c.Data)
+			}
+		}
+	}
+	return
+}
+
 func (p *Plumber) Rules() []byte {
 	return p.rules
 }
