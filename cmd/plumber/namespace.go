@@ -186,6 +186,7 @@ func NewSendFile(s *proto.Stat, plmb *lib.Plumber) *SendFile {
 	return &SendFile{
 		BaseFile: *fs.NewBaseFile(s),
 		content:  make(map[uint64][]byte),
+		plmb:     plmb,
 	}
 }
 
@@ -193,6 +194,7 @@ func NewSendFile(s *proto.Stat, plmb *lib.Plumber) *SendFile {
 func (f *SendFile) Open(fid uint64, omode proto.Mode) (err error) {
 	f.Lock()
 	defer f.Unlock()
+	logger.Printf(logger.DBG, "Open{fid:%d,omode=%v}", fid, omode)
 
 	if omode == proto.Owrite {
 		f.content[fid] = []byte{}
@@ -206,23 +208,30 @@ func (f *SendFile) Open(fid uint64, omode proto.Mode) (err error) {
 func (f *SendFile) Write(fid uint64, ofs uint64, buf []byte) (uint32, error) {
 	f.RLock()
 	defer f.RUnlock()
+	logger.Printf(logger.DBG, "Write{fid:%d,ofs:%d,buf:[%d]}", fid, ofs, len(buf))
 
 	data := f.content[fid]
 	flen := uint64(len(data))
-	if ofs >= flen {
+	if ofs > flen {
+		logger.Printf(logger.WARN, "  write beyond eof: %d > %d", ofs, flen)
 		return 0, errors.New("write beyond eof")
 	}
 	f.content[fid] = append(data[:ofs], buf...)
 	return uint32(len(buf)), nil
-
 }
 
 // Close file and process content (message)
 func (f *SendFile) Close(fid uint64) (err error) {
+	logger.Printf(logger.DBG, "Close{fid:%d}", fid)
+
 	data := f.content[fid]
 	var msg *lib.Message
 	msg, err = lib.ParseMessage(string(data))
-	f.plmb.Process(msg)
+	if err == nil && msg != nil {
+		f.plmb.Process(msg)
+	} else {
+		logger.Println(logger.WARN, "received invalid message: "+err.Error())
+	}
 	delete(f.content, fid)
 	return
 }
