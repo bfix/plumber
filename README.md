@@ -1,6 +1,6 @@
 # plumber: Plan9 plumber implementation in Go
 
-Copyright (C) 2014-present, Bernd Fix  >Y<
+Copyright (C) 2024-present, Bernd Fix  >Y<
 
 plumber is free software: you can redistribute it and/or modify it
 under the terms of the GNU Affero General Public License as published
@@ -22,6 +22,9 @@ SPDX-License-Identifier: AGPL3.0-or-later
 THIS IS WORK-IN-PROGRESS AT A VERY EARLY STATE. DON'T EXPECT ANY COMPLETE
 DOCUMENTATION OR COMPILABLE, RUNNABLE OR EVEN OPERATIONAL SOURCE CODE.
 
+TO BE USEFUL, A GOOD UNDERSTANDING OF PLAN9 (N.B.: PLAN9 IS **NOT** UNIX)
+AND THE PLUMBING ON PLAN9 IS MANDATORY.
+
 ## TL;DR
 
 Go v1.23+ is required to compile the code.
@@ -42,32 +45,36 @@ system. It receives `plumb message`s from other programs, analyzes the data in
 the messages, and acts according to rules defined in a ruleset.
 
 The rules for plumbing are loaded from a file at start-up. The format of the
-file is compatible with the Plan9 native format; differences are outlined in
-the `Rules`section.
+file is compatible with the Plan9 native format - with a different handling
+of regular expressions in `matches` clauses: All Plan9 regular
+expressions are supported, but this plumber also supports the RE2 syntax.
 
-`plumber` works by handling files in a (mounted) filesystem. Assume the
-plumbing service is mounted at `/mnt/plumb`, the plumber will *watch* two
-files (for other files managed by `plumber` see section `Ports`):
+### Plumbing filesystem
 
-### `/mnt/plumb/rules`
+`plumber` works by handling files in a filesystem. Assume the plumbing service
+is mounted at `/mnt/plumb`, these files are:
 
-#### Reading from file
+#### `/mnt/plumb/rules`
 
-Reading from this file returns the current ruleset.
+* Reading from this file returns the current ruleset.
 
-#### Writing to file
+* Writing to this file creates a new ruleset.
 
-Writing to this file creates a new ruleset.
+* Appending to this file adds new rules to the ruleset. Appending invalid data
+may break the `plumber` logic.
 
-### Appending to file
+#### `/mnt/plumb/send`
 
-Appending to this file adds the data to the ruleset. Appending invalid data
-breaks the `plumber` logic.
+This file is write-only; processes can send a `plumb message` to the `plumber`
+to be analyzed and executed upon. The message format is defined by the Plan9 plumber.
 
-### `/mnt/plumb/send`
+#### Ports `/mnt/plumb/<portname>`
 
-This file is write only. Programs can send a `plumb message` to the plumber
-to be analyzed and executed upon.
+For each port referenced in the ruleset a corresponding port file is created
+with the name of the port. A port cannot be named `rules`or `send`; these
+files are maintained by the plumber directly.
+
+Processes can read from port files to be informed about new messages.
 
 ## Use with Linux
 
@@ -76,15 +83,14 @@ used with Linux-like environments easily if `/mnt/plumb` is a directory
 with full access by the current user:
 
 ```bash
-$ plumber -f rules/default &
-$ PLUMBER_PID=?!
-$ 9pfuse 127.0.0.1:3124 /mnt/plumb
+plumber -f rules/default &
+PLUMBER_PID=?!
+9pfuse 127.0.0.1:3124 /mnt/plumb
 ```
 
 If done with the service, tear it down with
 
 ```bash
-$ fusermount -u /mnt/plumb
-$ kill $PLUMBER_ID
+fusermount -u /mnt/plumb
+kill $PLUMBER_ID
 ```
-
