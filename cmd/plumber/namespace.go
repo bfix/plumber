@@ -296,7 +296,7 @@ func (f *PortFile) Keep(msg *lib.Message) bool {
 // Open port file for reading
 func (f *PortFile) Open(fid uint64, omode proto.Mode) (err error) {
 	if f.watched {
-		return errors.New("in use")
+		return errors.New("file is in use")
 	}
 	f.watched = true
 	f.Lock()

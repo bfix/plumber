@@ -24,7 +24,6 @@ import (
 	"flag"
 	"log"
 	"os"
-	"time"
 
 	"github.com/bfix/gospel/logger"
 	"github.com/bfix/plumber/lib"
@@ -54,19 +53,6 @@ func main() {
 
 	// build plumber namespace and post/start server
 	ns := NamespaceService(plmb)
-
-	go func() {
-		msg := lib.NewMessage("plumber", "outerspace", "/home/user", "", "https://9p.sdf.org")
-		tick := time.NewTicker(30 * time.Second)
-		count := 0
-		for range tick.C {
-			if count++; count > 6 {
-				break
-			}
-			ns.FeedPort("outerspace", msg)
-		}
-	}()
-
 	action.Srv = ns
 	RunService(ns.srv)
 }
