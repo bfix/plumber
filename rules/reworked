@@ -38,20 +38,17 @@ type    is      text
 data    matches $protocol'://[^ ]+'
 data    matches $url
 attr    add     proto=$1 domain=$2 port=$3 path=$4 query=$5
-data    set     $1
+dst     set     $1
 branch
-  data    matches 'https?'
-  data    set     $proto'://'$domain$port$path$query
+  dst     matches 'https?'
   plumb   to      web
   plumb   client  window $browser
 branch
-  data    matches 'gopher'
-  data    set     $proto'://'$domain$port$path
+  dst     matches 'gopher'
   plumb   to      gopher
   plumb   client  window $gopher
 branch
-  data    matches 'ftps?'
-  data    set     $proto'://'$domain$port$path
+  dst     matches 'ftps?'
   plumb   start   ftpfs $data
 
 type    is      text
