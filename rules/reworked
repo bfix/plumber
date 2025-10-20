@@ -11,15 +11,15 @@ name      = $label'¡-￿_,.'
 filename  = '['$name']+'
 pathname  = '['$name'/]+'
 
-audio     = '(mp3|MP3|ogg|OGG|flac|FLAC|wav|WAV|au|AU|mid|MID|mus|MUS|m3u|M3U|pls|PLS|plist|PLIST)'
-image     = '(jpe?g|JPE?G|gif|GIF|tiff?|TIFF?|ppm|PPM|bit|BIT|png|PNG|pgm|PGM|bmp|BMP|yuv|YUV|tga|TGA)'
-document  = '(ps|PS|eps|EPS|pdf|PDF|dvi|DVI|doc|DOC|epub|EPUB|cb[tz]|CB[TZ])'
+audio     = '((?i)mp3|ogg|flac|wav|au|mid|mus|m3u|pls|plist)'
+image     = '((?i)jpe?g|gif|tiff?|ppm|bit|png|pgm|bmp|yuv|tga)'
+document  = '((?i)ps|eps|pdf|dvi|doc|epub|cb[tz])'
 
 addrelem  = '((#?[0-9]+)|(/[A-Za-z0-9_\^]+/?)|[.$])'
-addr      = :($addrelem([,;+\-]$addrelem)*):?
+addr      = '($addrelem([,;+\-]$addrelem)*):?'
 
 # network
-protocol  = '(https?|ftp|file|gopher|mailto|news|nntp|telnet|wais)'
+protocol  = '(https?|ftp|file|gopher)'
 domain    = '['$label'.]+'
 port      = '(:[0-9]+)?'
 path      = '['$label'./]+'
@@ -27,121 +27,65 @@ query     = '\?['$label'._~&=]*'
 url       = $protocol'://('$domain')'$port'('$path')?('$query')?'
 
 user      = '['$label'._]*'
-emailaddr = $user'@'$domain
+emailaddr = '('$user')@('$domain')'
 
 #-----------------------------------------------------------------------
 
 # rules
 
-type	is	text
-data	matches	'https?://[^ ]+'
+type    is      text
+data    matches $protocol'://[^ ]+'
 data    matches $url
-attr    add proto=$1 domain=$2 port=$3 path=$4 query=$5
-plumb	to	web
-plumb	client	window $browser
+attr    add     proto=$1 domain=$2 port=$3 path=$4 query=$5
+plumb   to      web
+plumb   client  window $browser
 
-type	is	text
-data	matches	$filename
-data	matches	$filename'\.rtf'
-arg isfile	$0
-plumb	to	msword
-plumb	start	wdoc2txt $file
+type    is      text
+data    matches $emailaddr
+attr    add     user=$1 domain=$2
+plumb   to      sendmail
+plumb   start   window rc -c '''echo % mail '''$0'; mail '$0
 
-type	is	text
-dst	is	msword
-plumb	to	msword
-plumb	start	wdoc2txt $file
+type    is      text
+data    matches '(?i)rfc ?([0-9]+)'
+attr    add     num=$1
+data    set     https://www.rfc-editor.org/rfc/rfc$1.html
+plumb   to      web
+plumb   client  window $browser
 
-type	is	text
-data	matches	$emailaddr
-plumb	to	sendmail
-plumb	start	window rc -c '''echo % mail '''$0'; mail '$0
+type    is      text
+data    matches '('$label')\(([1-9])\)'
+plumb   start   rc -c 'man -b '$2' '$1
 
-type	is	text
-data	matches	$filename
-data	matches	$filename'\.'$audio
-arg	isfile	$0
-plumb	to	audio
-plumb	start	window -scroll play $file
+type    is      text
+data    matches 'Local (.*)'
+plumb   to      none
+plumb   start   rc -c $1
 
-type	is	text
-data	matches	$filename
-data	matches	$filename'\.'$image
-arg	isfile	$0
-plumb	to	image
-plumb	client	page -wi
+type    is      text
+data    matches $filename
+arg     isfile  $0
+branch
+  data    matches $filename'\.rtf'
+  plumb   to      msword
+  plumb   start   wdoc2txt $file
+branch
+  data    matches $filename'\.'$audio
+  plumb   to      audio
+  plumb   start   window -scroll play $file
+branch
+  data    matches $filename'\.'$image
+  plumb   to      image
+  plumb   client  page -wi
+branch
+  data    matches $filename'\.'$document
+  plumb   to      postscript
+  plumb   start   page -w $file
 
-type	is	text
-data	matches	$filename
-data	matches	$filename'\.'$image
-arg	isfile	$1
-data	set	$file
-attr	add	addr=$4
-plumb	to	image
-plumb	start	page -wij $file!$4 $file
-
-type	is	text
-data	matches	$filename
-data	matches	$filename'\.'$document
-arg	isfile	$0
-plumb	to	postscript
-plumb	start	page -w $file
-
-type	is	text
-data	matches	$filename($addr)?
-arg	isfile	$1
-data	set	$file
-attr	add	addr=$3
-plumb	to	edit
-plumb	client	window $editor
-
-type	is	text
-data	matches	'('$filename'\.h)('$addr')?'
-arg	isfile	/sys/include/$1
-data	set	$file
-attr	add	addr=$3
-plumb	to	edit
-plumb	client	window $editor
-
-type	is	text
-data	matches	'('$filename'\.m)('$addr')?'
-arg	isfile	/usr/inferno/module/$1
-data	set	$file
-attr	add	addr=$3
-plumb	to	edit
-plumb	client	window $editor
-
-type	is	text
-data	matches	$pathname
-data	matches	'/mail/fs/[a-zA-Z¡-￿0-9/]+/[0-9]+'
-plumb	to	showmail
-plumb	start	window -noscroll -r 4 120 750 600 upas/nedmail -s $0
-
-type	is	text
-data	matches	'^neinbook:(.*)$'
-attr	add	payload=$1
-plumb	to	neinbook
-
-type	is	text
-data	matches	'('$pathname')\(([1-9])\)'
-plumb	start	rc -c 'man -b '$2' '$1
-
-type	is	text
-data	matches	'RFC ?([0-9]+)'
-arg	isfile	/lib/rfc/rfc$1
-data	set	$file
-plumb	to	edit
-plumb	client	window $editor
-
-dst	is	image
-plumb	to	image
-plumb	client	page -wi
-
-dst	is	postscript
-arg	isfile	$data
-plumb	start	page -w $data
-
-type	is	text
-data	matches	'Local (.*)'
-plumb	to	none
-plumb	start	rc -c $1
+type    is      text
+data    matches '($filename):($addr)?'
+arg     isfile  $1
+data    set     $file
+attr    add     addr=$2
+plumb   to      edit
+plumb   client  window $editor

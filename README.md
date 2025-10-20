@@ -44,10 +44,58 @@ The binaries are stored in `${GOPATH}/bin`.
 system. It receives `plumb message`s from other programs, analyzes the data in
 the messages, and acts according to rules defined in a rules file.
 
+### Rules file
+
 The rules for plumbing are loaded from a file at start-up. The format of the
-file is compatible with the Plan9 native format - with a different handling
-of regular expressions in `matches` rules: All Plan9 regular
-expressions are supported, but this plumber also supports the RE2 syntax.
+rules file is compatible with the Plan9 native format - any Plan9 plumbing
+file can be used, but `plumber` has the following extensions:
+
+#### `matches` regular expressions
+
+All Plan9 regular expressions in `matches` rules are supported, but `plumber`
+also supports the full RE2 syntax. Plumbing files with RE2 expressions are
+not backward-compatible.
+
+#### Rule branching
+
+Often rulesets look similar in their structure like:
+
+```bash
+type is text
+data matches $filename
+arg isfile $0
+data matches $filename'\.rtf'
+plumb to msword
+plumb start wdoc2txt $file
+
+type is text
+data matches $filename
+arg isfile $0
+data matches $filename'\.'$audio
+plumb to audio
+plumb start window -scroll play $file
+
+:
+```
+
+In a `plumber` rules file you can write this as:
+
+```bash
+type    is      text
+data    matches $filename
+arg     isfile  $0
+branch
+  data    matches $filename'\.rtf'
+  plumb   to      msword
+  plumb   start   wdoc2txt $file
+branch
+  data    matches $filename'\.'$audio
+  plumb   to      audio
+  plumb   start   window -scroll play $file
+:
+```
+
+The rulesets are expanded when a rules file is read and are Plan9-compatible when written.
 
 ### Plumbing filesystem
 

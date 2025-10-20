@@ -82,6 +82,10 @@ func ParseRulesFile(in io.Reader, env map[string]string) (rs *RuleList, err erro
 		Rulesets: make([]*RuleSet, 0),
 		Env:      env,
 	}
+	// Preprocessor
+	var main string
+	var branches []string
+
 	// read rules as a list of multi-line strings
 	var list []string
 	rdr := bufio.NewReader(in)
@@ -107,9 +111,25 @@ func ParseRulesFile(in io.Reader, env map[string]string) (rs *RuleList, err erro
 			continue
 		}
 
+		// check for "rule branch"
+		if t == "branch" {
+			if len(main) == 0 {
+				main = buf
+			} else {
+				branches = append(branches, buf)
+			}
+			buf = ""
+			continue
+		}
+
 		// handle possible rule
 		if len(line) == 0 {
-			if len(buf) > 0 {
+			// need unwrapping?
+			if len(branches) > 0 {
+				for _, br := range branches {
+					list = append(list, main+"\n"+br)
+				}
+			} else if len(buf) > 0 {
 				list = append(list, buf)
 			}
 			buf = ""
