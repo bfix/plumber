@@ -78,6 +78,8 @@ Processes can read from port files to be informed about new messages.
 
 ## Use with Linux
 
+### Starting the service and mounting the filesystem
+
 Although `plumber` is part of Plan9 (and Plan9 **is not Unix**), it can be
 used with Linux-like environments easily if `/mnt/plumb` is a directory
 with full access by the current user:
@@ -87,6 +89,33 @@ plumber -f rules/default &
 PLUMBER_PID=?!
 9pfuse 127.0.0.1:3124 /mnt/plumb
 ```
+
+### Sending plumb messages
+
+A little script (`plumb.sh`) in `$PATH` can be used to send plumbing messages
+to the plumber for processing:
+
+```bash
+#!/bin/bash
+
+data="$*"
+cat > /mnt/plumb/send <<EOF
+$USER
+plumber
+$HOME
+text
+
+${#data}
+$data
+
+EOF
+```
+
+To send a message, run `plumb.sh "<text>"`. The text will be analyzed and
+acted upon by the plumber service. For convenience you can use the script
+with a clipboard manager that triggers the plumbing from a context menu.
+
+### Unmounting the filesystem and terminating the service
 
 If done with the service, tear it down with
 
