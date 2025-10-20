@@ -157,7 +157,7 @@ func (f *RulesFile) Write(fid uint64, ofs uint64, buf []byte) (uint32, error) {
 	data := f.content[fid]
 	flen := uint64(len(data))
 	if ofs > flen {
-		return 0, errors.New("write beyond eof")
+		return 0, errors.New("illegal seek")
 	}
 	f.content[fid] = append(data[:ofs], buf...)
 	return uint32(len(buf)), nil
@@ -208,7 +208,7 @@ func (f *SendFile) Open(fid uint64, omode proto.Mode) (err error) {
 	if omode == proto.Owrite {
 		f.content[fid] = []byte{}
 	} else {
-		err = errors.New("file is write-only")
+		err = errors.New("permission denied")
 	}
 	return
 }
@@ -223,7 +223,7 @@ func (f *SendFile) Write(fid uint64, ofs uint64, buf []byte) (uint32, error) {
 	flen := uint64(len(data))
 	if ofs > flen {
 		logger.Printf(logger.WARN, "  write beyond eof: %d > %d", ofs, flen)
-		return 0, errors.New("write beyond eof")
+		return 0, errors.New("illegal seek")
 	}
 	f.content[fid] = append(data[:ofs], buf...)
 	return uint32(len(buf)), nil
@@ -296,7 +296,7 @@ func (f *PortFile) Keep(msg *lib.Message) bool {
 // Open port file for reading
 func (f *PortFile) Open(fid uint64, omode proto.Mode) (err error) {
 	if f.watched {
-		return errors.New("file already in use")
+		return errors.New("in use")
 	}
 	f.watched = true
 	f.Lock()
@@ -304,7 +304,7 @@ func (f *PortFile) Open(fid uint64, omode proto.Mode) (err error) {
 	logger.Printf(logger.DBG, "Open{fid:%d,omode=%v}", fid, omode)
 
 	if omode == proto.Owrite {
-		return errors.New("can't write file")
+		return errors.New("file is read only")
 	}
 	f.skipped = 0
 	if !f.pending {
@@ -320,7 +320,7 @@ func (f *PortFile) Read(fid uint64, ofs uint64, count uint64) ([]byte, error) {
 	defer f.RUnlock()
 
 	if ofs < f.skipped {
-		return []byte{}, errors.New("read out of sync")
+		return []byte{}, errors.New("illegal seek")
 	}
 	ofs -= f.skipped
 
