@@ -90,6 +90,9 @@ func main() {
 			}
 			continue
 
+		case ".show":
+			log.Println(string(plmb.Rules()))
+
 		default:
 			log.Printf("<== %s", line)
 			if err = plmb.Eval(line, "", "", ""); err != nil {
