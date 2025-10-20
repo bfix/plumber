@@ -47,7 +47,7 @@ func NewPlumber(worker NewAction) *Plumber {
 
 // ParseRulesFile from a reader
 func (p *Plumber) ParseRulesFile(rdr io.Reader, env map[string]string) (err error) {
-	p.rs, err = ParseRulesFile(rdr, env)
+	p.rs, err = ParsePlumbingFile(rdr, env)
 	p.rs.Exec = p.worker
 	p.rules = []byte(p.rs.String())
 	return
@@ -56,7 +56,7 @@ func (p *Plumber) ParseRulesFile(rdr io.Reader, env map[string]string) (err erro
 // Ports returns a list of all ports referenced in the current list of rules
 func (p *Plumber) Ports() (list []string) {
 	for _, r := range p.rs.Rulesets {
-		for _, c := range r.Stmts {
+		for _, c := range r.Rules {
 			if c.Obj == "plumb" && c.Verb == "to" {
 				list = append(list, c.Data)
 			}
@@ -76,7 +76,7 @@ func (p *Plumber) Env() map[string]string {
 }
 
 // Eval runs evaluation of data based on defined rules
-func (p *Plumber) Eval(data, src, dst, wdir string) error {
+func (p *Plumber) Eval(data, src, dst, wdir string) (bool, error) {
 	msg := &Message{
 		Src:   src,
 		Dst:   dst,
@@ -85,12 +85,12 @@ func (p *Plumber) Eval(data, src, dst, wdir string) error {
 		Ndata: len(data),
 		Data:  data,
 	}
-	_, _, err := p.rs.Evaluate(msg, false)
-	return err
+	out, _, err := p.rs.Evaluate(msg, false)
+	return out != nil, err
 }
 
 // Process a plumbing message
-func (p *Plumber) Process(msg *Message) error {
-	_, _, err := p.rs.Evaluate(msg, false)
-	return err
+func (p *Plumber) Process(msg *Message) (bool, error) {
+	out, _, err := p.rs.Evaluate(msg, false)
+	return out != nil, err
 }

@@ -44,6 +44,7 @@ func main() {
 	exec := func(msg *lib.Message, verb, data string) (ok, done bool) {
 		log.Printf("==> %s %s", verb, lib.Quote(data))
 		log.Printf("    Attr: %s", msg.GetAttr())
+		log.Printf("    Data: %s", data)
 		ok = true
 		done = (verb == "start" || verb == "client")
 		return
@@ -96,7 +97,7 @@ func main() {
 
 		default:
 			log.Printf("<== %s", line)
-			if err = plmb.Eval(line, "", "", ""); err != nil {
+			if _, err = plmb.Eval(line, "", "", ""); err != nil {
 				log.Fatal(err)
 			}
 		}

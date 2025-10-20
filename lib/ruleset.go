@@ -73,8 +73,8 @@ func (rs *RuleList) String() string {
 	return buf.String()
 }
 
-// ParseRulesFile reads a list of rules and environment settings from a reader
-func ParseRulesFile(in io.Reader, env map[string]string) (rs *RuleList, err error) {
+// ParsePlumbingFile reads a list of rules and environment settings from a reader
+func ParsePlumbingFile(in io.Reader, env map[string]string) (rs *RuleList, err error) {
 	if env == nil {
 		env = make(map[string]string)
 	}
@@ -161,13 +161,13 @@ func ParseRulesFile(in io.Reader, env map[string]string) (rs *RuleList, err erro
 
 // RuleSet is a list of rules that are evaluated against an input
 type RuleSet struct {
-	Stmts []*Rule
+	Rules []*Rule
 }
 
-// ParseRuleSet parses a single rule from a multi-line string
+// ParseRuleSet parses a single ruleset from a multi-line string
 func ParseRuleSet(s string) (r *RuleSet, err error) {
 	r = &RuleSet{
-		Stmts: make([]*Rule, 0),
+		Rules: []*Rule{},
 	}
 	for line := range strings.SplitSeq(s, "\n") {
 		if len(line) == 0 {
@@ -184,7 +184,7 @@ func ParseRuleSet(s string) (r *RuleSet, err error) {
 			Verb: words[1],
 			Data: words[2],
 		}
-		r.Stmts = append(r.Stmts, cl)
+		r.Rules = append(r.Rules, cl)
 	}
 	return
 }
@@ -192,7 +192,7 @@ func ParseRuleSet(s string) (r *RuleSet, err error) {
 // String returns a human-readble representation of a rule
 func (r *RuleSet) String() string {
 	var list []string
-	for _, c := range r.Stmts {
+	for _, c := range r.Rules {
 		list = append(list, c.String())
 	}
 	return strings.Join(list, "\n")
@@ -205,7 +205,7 @@ func (r *RuleSet) Evaluate(in *Message, env map[string]string, withFS bool, work
 	k.Message = *in
 	k.withFS = withFS
 
-	for _, cl := range r.Stmts {
+	for _, cl := range r.Rules {
 		var ok, done bool
 		if ok, done, err = k.Execute(cl, env); err != nil {
 			return
