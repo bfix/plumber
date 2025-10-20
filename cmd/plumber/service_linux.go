@@ -32,9 +32,9 @@ import (
 )
 
 // RunService (on Linux)
-func RunService(srv go9p.Srv) {
+func (p *Plumber) Run() {
 	go func() {
-		if err := go9p.Serve("0.0.0.0:3124", srv); err != nil {
+		if err := go9p.Serve("0.0.0.0:3124", p.srv); err != nil {
 			logger.Println(logger.CRITICAL, "can't start service: "+err.Error())
 		}
 	}()

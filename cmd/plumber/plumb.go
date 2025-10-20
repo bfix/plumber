@@ -25,22 +25,83 @@ import (
 
 	"github.com/bfix/gospel/logger"
 	"github.com/bfix/plumber/lib"
+	"github.com/knusbaum/go9p"
+	"github.com/knusbaum/go9p/fs"
 )
+
+// Plumber with namespace handling
+type Plumber struct {
+	lib.Plumber // base plumber logic
+
+	srv   go9p.Srv             // 9P server
+	fs    *fs.FS               // synth. filesystem
+	root  *fs.StaticDir        // root folder
+	ports map[string]*PortFile // list of plumbing ports
+	Dry   bool                 // dry run (on exec)
+}
+
+// NewPlumber
+func NewPlumber() *Plumber {
+	return &Plumber{
+		ports: make(map[string]*PortFile),
+	}
+}
+
+// NamespaceService returns a service instance
+func (p *Plumber) NamespaceService() {
+	p.ports = make(map[string]*PortFile)
+
+	p.fs, p.root = fs.NewFS("plumb", "plumb", 0775)
+	p.root.AddChild(NewRulesFile(p.fs.NewStat("rules", "plumb", "plumb", 0666), p, p.SyncPorts))
+	p.root.AddChild(NewSendFile(p.fs.NewStat("send", "plumb", "plumb", 0222), p))
+	p.srv = p.fs.Server()
+	p.SyncPorts()
+}
+
+// SyncPorts after rule changes. New ports are created, but unused ports
+// are not removed from the filesystem.
+func (p *Plumber) SyncPorts() {
+	for _, name := range p.Ports() {
+		if _, ok := p.ports[name]; !ok {
+			f := NewPortFile(p.fs.NewStat(name, "plumb", "plumb", 0444))
+			p.ports[name] = f
+			p.root.AddChild(f)
+		}
+	}
+}
+
+// FeedPort post a message on the specified port.
+func (p *Plumber) FeedPort(name string, msg *lib.Message) bool {
+	f, ok := p.ports[name]
+	if !ok {
+		return false
+	}
+	return f.Post(msg)
+}
+
+// KeepMsg for un-opened port file
+func (p *Plumber) KeepMsg(name string, msg *lib.Message) bool {
+	f, ok := p.ports[name]
+	if !ok {
+		return false
+	}
+	return f.Keep(msg)
+}
 
 // PlumbAction to process rules with "plumb" rules
 type PlumbAction struct {
-	Srv  *Service // reference to namespace service
+	plmb *Plumber // back-reference to plumber
 	port string   // name of plumbing port (if specified)
-	Dry  bool     // dry run (on exec)
+	dry  bool     // dry run
 }
 
 // NewWorker returns a new worker instance
-func (a *PlumbAction) NewWorker() lib.Action {
-	w := &PlumbAction{
-		Srv:  a.Srv,
+func (p *Plumber) NewWorker() lib.Action {
+	return (&PlumbAction{
+		plmb: p,
 		port: "",
-	}
-	return w.process
+		dry:  p.Dry,
+	}).process
 }
 
 // process a message according to verb.
@@ -51,9 +112,9 @@ func (a *PlumbAction) process(msg *lib.Message, verb, data string) (ok, done boo
 	switch verb {
 	case "to":
 		ok = true
-		done = a.Srv.FeedPort(data, msg)
+		done = a.plmb.FeedPort(data, msg)
 	case "client":
-		if ok = a.Srv.KeepMsg(data, msg); !ok {
+		if ok = a.plmb.KeepMsg(data, msg); !ok {
 			done = true
 			return
 		}
@@ -69,7 +130,7 @@ func (a *PlumbAction) process(msg *lib.Message, verb, data string) (ok, done boo
 
 // Exec plumbing request
 func (a *PlumbAction) Exec(data string) {
-	if !a.Dry {
+	if !a.dry {
 		go func() {
 			parts := lib.ParseParts(data)
 			cmd := exec.Command(parts[0], parts[1:]...)

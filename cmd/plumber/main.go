@@ -26,7 +26,6 @@ import (
 	"os"
 
 	"github.com/bfix/gospel/logger"
-	"github.com/bfix/plumber/lib"
 )
 
 func main() {
@@ -35,13 +34,16 @@ func main() {
 	rules := flag.String("p", "", "plumbing file")
 	flag.Parse()
 
+	// TODO: use default plumbing file if no file is specified
+
 	// setup logging
 	logger.SetLogLevelFromName("DBG")
 	logger.UseFormat(logger.ColorFormat)
 
-	// prepare plumber and load rules file
-	action := new(PlumbAction)
-	plmb := lib.NewPlumber(action.NewWorker)
+	// prepare plumber
+	plmb := NewPlumber()
+
+	// load rules file
 	f, err := os.Open(*rules)
 	if err != nil {
 		log.Fatal(err)
@@ -52,7 +54,6 @@ func main() {
 	}
 
 	// build plumber namespace and post/start server
-	ns := NamespaceService(plmb)
-	action.Srv = ns
-	RunService(ns.srv)
+	plmb.NamespaceService()
+	plmb.Run()
 }

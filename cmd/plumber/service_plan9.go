@@ -25,6 +25,6 @@ package main
 import "github.com/knusbaum/go9p"
 
 // RunService (on Plan9)
-func RunService(srv go9p.Srv) {
-	go9p.PostSrv("plumb", srv)
+func (p *Plumber) Run() {
+	go9p.PostSrv("plumb", p.srv)
 }

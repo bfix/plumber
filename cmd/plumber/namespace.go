@@ -26,65 +26,9 @@ import (
 
 	"github.com/bfix/gospel/logger"
 	"github.com/bfix/plumber/lib"
-	"github.com/knusbaum/go9p"
 	"github.com/knusbaum/go9p/fs"
 	"github.com/knusbaum/go9p/proto"
 )
-
-// Service handling the plumbing namespace
-type Service struct {
-	srv   go9p.Srv             // 9P server
-	fs    *fs.FS               // synth. filesystem
-	root  *fs.StaticDir        // root folder
-	plmb  *lib.Plumber         // reference to plumber
-	ports map[string]*PortFile // list of plumbing ports
-}
-
-// NamespaceService returns a service instance
-func NamespaceService(pl *lib.Plumber) *Service {
-	service := &Service{
-		plmb:  pl,
-		ports: make(map[string]*PortFile),
-	}
-	plmbFS, root := fs.NewFS("plumb", "plumb", 0775)
-	root.AddChild(NewRulesFile(plmbFS.NewStat("rules", "plumb", "plumb", 0666), pl, service.SyncPorts))
-	root.AddChild(NewSendFile(plmbFS.NewStat("send", "plumb", "plumb", 0222), pl))
-	service.srv = plmbFS.Server()
-	service.fs = plmbFS
-	service.root = root
-	service.SyncPorts()
-	return service
-}
-
-// SyncPorts after rule changes. New ports are created, but unused ports
-// are not removed from the filesystem.
-func (s *Service) SyncPorts() {
-	for _, name := range s.plmb.Ports() {
-		if _, ok := s.ports[name]; !ok {
-			f := NewPortFile(s.fs.NewStat(name, "plumb", "plumb", 0444))
-			s.ports[name] = f
-			s.root.AddChild(f)
-		}
-	}
-}
-
-// FeedPort post a message on the specified port.
-func (s *Service) FeedPort(name string, msg *lib.Message) bool {
-	f, ok := s.ports[name]
-	if !ok {
-		return false
-	}
-	return f.Post(msg)
-}
-
-// KeepMsg for un-opened port file
-func (s *Service) KeepMsg(name string, msg *lib.Message) bool {
-	f, ok := s.ports[name]
-	if !ok {
-		return false
-	}
-	return f.Keep(msg)
-}
 
 //----------------------------------------------------------------------
 
@@ -96,13 +40,13 @@ type RulesFile struct {
 	fs.BaseFile
 
 	content   map[uint64][]byte // fid-mapped content
-	plmb      *lib.Plumber      // reference to plumber instance
+	plmb      *Plumber          // reference to plumber instance
 	mode      proto.Mode        // open mode: read/write
 	syncPorts func()            // sync ports after rule changes
 }
 
 // NewRulesFile creates a new filesystem node for rules
-func NewRulesFile(s *proto.Stat, plmb *lib.Plumber, sync func()) *RulesFile {
+func NewRulesFile(s *proto.Stat, plmb *Plumber, sync func()) *RulesFile {
 	return &RulesFile{
 		BaseFile:  *fs.NewBaseFile(s),
 		content:   make(map[uint64][]byte),
@@ -187,11 +131,11 @@ type SendFile struct {
 	fs.BaseFile
 
 	content map[uint64][]byte // fid-mapped content
-	plmb    *lib.Plumber      // reference to plumber instance
+	plmb    *Plumber          // reference to plumber instance
 }
 
 // NewSendFile creates a new filesystem node for receiving plumb messages
-func NewSendFile(s *proto.Stat, plmb *lib.Plumber) *SendFile {
+func NewSendFile(s *proto.Stat, plmb *Plumber) *SendFile {
 	return &SendFile{
 		BaseFile: *fs.NewBaseFile(s),
 		content:  make(map[uint64][]byte),
@@ -237,7 +181,10 @@ func (f *SendFile) Close(fid uint64) (err error) {
 	var msg *lib.Message
 	msg, err = lib.ParseMessage(string(data))
 	if err == nil && msg != nil {
-		f.plmb.Process(msg)
+		var done bool
+		if done, err = f.plmb.Process(msg); err == nil && !done && len(msg.Dst) > 0 {
+			f.plmb.FeedPort(msg.Dst, msg)
+		}
 	} else {
 		logger.Println(logger.WARN, "received invalid message: "+err.Error())
 	}
