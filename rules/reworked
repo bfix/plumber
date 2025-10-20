@@ -1,6 +1,7 @@
 
 editor    = sam
 browser   = mothra
+gopher    = gopher
 
 #-----------------------------------------------------------------------
 
@@ -19,7 +20,7 @@ addrelem  = '((#?[0-9]+)|(/[A-Za-z0-9_\^]+/?)|[.$])'
 addr      = '($addrelem([,;+\-]$addrelem)*):?'
 
 # network
-protocol  = '(https?|ftp|file|gopher)'
+protocol  = '(https?|ftps?|file|gopher)'
 domain    = '['$label'.]+'
 port      = '(:[0-9]+)?'
 path      = '['$label'./]+'
@@ -37,8 +38,21 @@ type    is      text
 data    matches $protocol'://[^ ]+'
 data    matches $url
 attr    add     proto=$1 domain=$2 port=$3 path=$4 query=$5
-plumb   to      web
-plumb   client  window $browser
+data    set     $1
+branch
+  data    matches 'https?'
+  data    set     $proto'://'$domain$port$path$query
+  plumb   to      web
+  plumb   client  window $browser
+branch
+  data    matches 'gopher'
+  data    set     $proto'://'$domain$port$path
+  plumb   to      gopher
+  plumb   client  window $gopher
+branch
+  data    matches 'ftps?'
+  data    set     $proto'://'$domain$port$path
+  plumb   start   ftpfs $data
 
 type    is      text
 data    matches $emailaddr
