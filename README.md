@@ -95,7 +95,27 @@ branch
 :
 ```
 
-The rulesets are expanded when a rules file is read and are Plan9-compatible when written.
+The rulesets are expanded when a rules file is read and are Plan9-compatible
+when written.
+
+#### Testing rule files
+
+The `plumb-sim` program can be used to test rules interactively. It is started with
+
+```bash
+./plumb-sim -p <rules file>
+```
+
+and prompts for data to plumb. Debug messages are shown for all `matches`
+rules encountered. If a ruleset matches the plumbing actions are also
+shown.
+
+If the input is a command (starting with a dot), it is executed. The following
+commands are defined:
+
+* `.reload` reloads the start-up rules file (after editing)
+* `.load <rules file>` loads a new rules file
+* `.show` displays the current rules
 
 ### Plumbing filesystem
 

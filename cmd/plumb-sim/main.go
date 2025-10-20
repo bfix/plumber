@@ -34,7 +34,7 @@ import (
 
 func main() {
 	var rules string
-	flag.StringVar(&rules, "r", "", "name of rules file")
+	flag.StringVar(&rules, "p", "", "name of plumbing file")
 	flag.Parse()
 
 	// setup logging
@@ -45,6 +45,7 @@ func main() {
 		log.Printf("==> %s %s", verb, lib.Quote(data))
 		log.Printf("    Attr: %s", msg.GetAttr())
 		ok = true
+		done = (verb == "start" || verb == "client")
 		return
 	}
 	worker := func() lib.Action {
