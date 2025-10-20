@@ -47,14 +47,16 @@ func main() {
 	}
 
 	plmb := lib.NewPlumber(worker)
-	f, err := os.Open(rules)
-	if err != nil {
-		log.Fatal(err)
+	loadRules := func(name string) error {
+		f, err := os.Open(name)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = plmb.ParseRulesFile(f, nil)
+		f.Close()
+		return err
 	}
-	defer f.Close()
-	if err = plmb.ParseRulesFile(f, nil); err != nil {
-		log.Fatal(err)
-	}
+	loadRules(rules)
 
 	rdr := bufio.NewReader(os.Stdin)
 	for {
@@ -69,9 +71,25 @@ func main() {
 		}
 		line := string(data)
 
-		log.Printf("<== %s", line)
-		if err = plmb.Eval(line, "", "", ""); err != nil {
-			log.Fatal(err)
+		parts := lib.ParseParts(line)
+		switch parts[0] {
+		case ".reload":
+			if err = loadRules(rules); err != nil {
+				log.Fatal(err)
+			}
+			continue
+
+		case ".load":
+			if err = loadRules(parts[1]); err != nil {
+				log.Fatal(err)
+			}
+			continue
+
+		default:
+			log.Printf("<== %s", line)
+			if err = plmb.Eval(line, "", "", ""); err != nil {
+				log.Fatal(err)
+			}
 		}
 	}
 }
