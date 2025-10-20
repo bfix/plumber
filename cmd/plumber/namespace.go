@@ -157,7 +157,7 @@ func (f *RulesFile) Write(fid uint64, ofs uint64, buf []byte) (uint32, error) {
 	data := f.content[fid]
 	flen := uint64(len(data))
 	if ofs > flen {
-		return 0, errors.New("illegal seek")
+		return 0, errors.New("illegal offset")
 	}
 	f.content[fid] = append(data[:ofs], buf...)
 	return uint32(len(buf)), nil
@@ -223,7 +223,7 @@ func (f *SendFile) Write(fid uint64, ofs uint64, buf []byte) (uint32, error) {
 	flen := uint64(len(data))
 	if ofs > flen {
 		logger.Printf(logger.WARN, "  write beyond eof: %d > %d", ofs, flen)
-		return 0, errors.New("illegal seek")
+		return 0, errors.New("illegal offset")
 	}
 	f.content[fid] = append(data[:ofs], buf...)
 	return uint32(len(buf)), nil
@@ -320,7 +320,7 @@ func (f *PortFile) Read(fid uint64, ofs uint64, count uint64) ([]byte, error) {
 	defer f.RUnlock()
 
 	if ofs < f.skipped {
-		return []byte{}, errors.New("illegal seek")
+		return []byte{}, errors.New("illegal offset")
 	}
 	ofs -= f.skipped
 
