@@ -20,10 +20,11 @@ addr      = :($addrelem([,;+\-]$addrelem)*):?
 
 # network
 protocol  = '(https?|ftp|file|gopher|mailto|news|nntp|telnet|wais)'
-domain    = '['$label']+([.:]['$label']+)*'
-path      = '(/['$label']+)*/?'
-query     = '\?['$label'._~&]*'
-url       = '('$protocol')://('$domain')('$path')('$query')'
+domain    = '['$label'.]+'
+port      = '(:[0-9]+)?'
+path      = '['$label'./]+'
+query     = '\?['$label'._~&=]*'
+url       = $protocol'://('$domain')'$port'('$path')?('$query')?'
 
 user      = '['$label'._]*'
 emailaddr = $user'@'$domain
@@ -35,13 +36,13 @@ emailaddr = $user'@'$domain
 type	is	text
 data	matches	'https?://[^ ]+'
 data    matches $url
-attr    add proto=$1 domain=$2 path=$3 query=$4
+attr    add proto=$1 domain=$2 port=$3 path=$4 query=$5
 plumb	to	web
 plumb	client	window $browser
 
 type	is	text
-data	matches	$fname
-data	matches	$fname'\.rtf'
+data	matches	$filename
+data	matches	$filename'\.rtf'
 arg isfile	$0
 plumb	to	msword
 plumb	start	wdoc2txt $file
@@ -57,22 +58,22 @@ plumb	to	sendmail
 plumb	start	window rc -c '''echo % mail '''$0'; mail '$0
 
 type	is	text
-data	matches	$fname
-data	matches	$fname'\.'$audio
+data	matches	$filename
+data	matches	$filename'\.'$audio
 arg	isfile	$0
 plumb	to	audio
 plumb	start	window -scroll play $file
 
 type	is	text
-data	matches	$fname
-data	matches	$fname'\.'$image
+data	matches	$filename
+data	matches	$filename'\.'$image
 arg	isfile	$0
 plumb	to	image
 plumb	client	page -wi
 
 type	is	text
-data	matches	$fname
-data	matches	$fname'\.'$image
+data	matches	$filename
+data	matches	$filename'\.'$image
 arg	isfile	$1
 data	set	$file
 attr	add	addr=$4
@@ -80,14 +81,14 @@ plumb	to	image
 plumb	start	page -wij $file!$4 $file
 
 type	is	text
-data	matches	$fname
-data	matches	$fname'\.'$document
+data	matches	$filename
+data	matches	$filename'\.'$document
 arg	isfile	$0
 plumb	to	postscript
 plumb	start	page -w $file
 
 type	is	text
-data	matches	$fname($addr)?
+data	matches	$filename($addr)?
 arg	isfile	$1
 data	set	$file
 attr	add	addr=$3
