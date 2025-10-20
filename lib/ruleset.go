@@ -125,10 +125,13 @@ func ParseRulesFile(in io.Reader, env map[string]string) (rs *RuleList, err erro
 		// handle possible rule
 		if len(line) == 0 {
 			// need unwrapping?
-			if len(branches) > 0 {
+			if len(main) > 0 {
+				branches = append(branches, buf)
 				for _, br := range branches {
 					list = append(list, main+"\n"+br)
 				}
+				main = ""
+				branches = make([]string, 0)
 			} else if len(buf) > 0 {
 				list = append(list, buf)
 			}
