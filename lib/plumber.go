@@ -24,32 +24,38 @@ import (
 	"io"
 )
 
+// Action triggered by object "plumb"
+type Action func(msg *Message, verb, data string) (ok bool, done bool)
+
+// NewAction returns a new 'plumb' function
+type NewAction func() Action
+
 // Plumber
 type Plumber struct {
-	rs    *RuleList
-	exec  Action
-	rules []byte
+	rs     *RuleList
+	worker NewAction
+	rules  []byte
 }
 
 // NewPlumber creates a new plumber instance
-func NewPlumber(call Action) *Plumber {
+func NewPlumber(worker NewAction) *Plumber {
 	return &Plumber{
-		exec:  call,
-		rules: []byte{},
+		worker: worker,
+		rules:  []byte{},
 	}
 }
 
 // ParseRulesFile from a reader
 func (p *Plumber) ParseRulesFile(rdr io.Reader, env map[string]string) (err error) {
 	p.rs, err = ParseRulesFile(rdr, env)
-	p.rs.Exec = p.exec
+	p.rs.Exec = p.worker
 	p.rules = []byte(p.rs.String())
 	return
 }
 
 // Ports returns a list of all ports referenced in the current list of rules
 func (p *Plumber) Ports() (list []string) {
-	for _, r := range p.rs.Rules {
+	for _, r := range p.rs.Rulesets {
 		for _, c := range r.Stmts {
 			if c.Obj == "plumb" && c.Verb == "to" {
 				list = append(list, c.Data)
@@ -72,11 +78,12 @@ func (p *Plumber) Env() map[string]string {
 // Eval runs evaluation of data based on defined rules
 func (p *Plumber) Eval(data, src, dst, wdir string) error {
 	msg := &Message{
-		Src:  src,
-		Dst:  dst,
-		Wdir: wdir,
-		Attr: make(map[string]string),
-		Data: data,
+		Src:   src,
+		Dst:   dst,
+		Wdir:  wdir,
+		Attr:  make(map[string]string),
+		Ndata: len(data),
+		Data:  data,
 	}
 	_, _, err := p.rs.Evaluate(msg, false)
 	return err

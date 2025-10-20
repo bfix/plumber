@@ -80,9 +80,6 @@ func (r *Rule) String() string {
 	return r.Obj + " " + r.Verb + " " + r.Data
 }
 
-// Action triggered by object "plumb"
-type Action func(msg *Message, verb, data string) (ok bool, done bool)
-
 // Kernel is the environment for executing rules against input data
 type Kernel struct {
 	Message
@@ -90,11 +87,11 @@ type Kernel struct {
 	withFS bool              // if true "isfile" and "isdir" work on the filesystem
 	dollar []string          // result of last match
 	vars   map[string]string // variables
-	plumb  Action            // plumbing action
+	worker Action            // performs plumbing action
 }
 
 // NewKernel creates a new kernel instance
-func NewKernel(a Action) *Kernel {
+func NewKernel(w Action) *Kernel {
 	return &Kernel{
 		Message: Message{
 			Attr: make(map[string]string),
@@ -102,7 +99,7 @@ func NewKernel(a Action) *Kernel {
 		withFS: true,
 		dollar: make([]string, 0),
 		vars:   make(map[string]string),
-		plumb:  a,
+		worker: w,
 	}
 }
 
@@ -189,8 +186,8 @@ func (k *Kernel) Execute(r *Rule, env map[string]string) (ok bool, done bool, er
 		k.vars["attr"] = k.GetAttr()
 	case "to", "start", "client":
 		ok = true
-		if k.plumb != nil {
-			ok, done = k.plumb(&k.Message, r.Verb, data)
+		if k.worker != nil {
+			ok, done = k.worker(&k.Message, r.Verb, data)
 		}
 	default:
 		err = fmt.Errorf("not implemented: '%s'", r)

@@ -47,7 +47,7 @@ func TestRulesInOut(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("%d rules read", len(rs.Rules))
+	t.Logf("%d rules read", len(rs.Rulesets))
 }
 
 func TestRulesEval(t *testing.T) {

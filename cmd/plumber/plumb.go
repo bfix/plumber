@@ -20,21 +20,70 @@
 
 package main
 
-import "github.com/bfix/plumber/lib"
+import (
+	"os/exec"
+
+	"github.com/bfix/gospel/logger"
+	"github.com/bfix/plumber/lib"
+)
 
 // PlumbAction to process rules with "plumb" rules
 type PlumbAction struct {
-	srv *Service // reference to namespace service
+	Srv  *Service // reference to namespace service
+	port string   // name of plumbing port (if specified)
+	Dry  bool     // dry run (on exec)
 }
 
-// Process a message according to verb.
+// NewWorker returns a new worker instance
+func (a *PlumbAction) NewWorker() lib.Action {
+	w := &PlumbAction{
+		Srv:  a.Srv,
+		port: "",
+	}
+	return w.process
+}
+
+// process a message according to verb.
 // 'ok' is true if the rule executes without failure/mismatch
 // 'done' is true if this action terminates the ruleset
-func (a *PlumbAction) Process(msg *lib.Message, verb, data string) (ok, done bool) {
-	if verb == "to" {
+func (a *PlumbAction) process(msg *lib.Message, verb, data string) (ok, done bool) {
+	logger.Printf(logger.INFO, ">> plumb %s %s", verb, data)
+	switch verb {
+	case "to":
 		ok = true
-		done = a.srv.FeedPort(data, msg)
-		return
+		done = a.Srv.FeedPort(data, msg)
+	case "client":
+		if ok = a.Srv.KeepMsg(data, msg); !ok {
+			done = true
+			return
+		}
+		fallthrough
+	case "start":
+		a.Exec(data)
+		ok = true
+		done = true
 	}
+	logger.Printf(logger.INFO, "<< ok=%v, done=%v", ok, done)
 	return
+}
+
+// Exec plumbing request
+func (a *PlumbAction) Exec(data string) {
+	if !a.Dry {
+		go func() {
+			parts := lib.ParseParts(data)
+			cmd := exec.Command(parts[0], parts[1:]...)
+			logger.Println(logger.DBG, cmd.String())
+			stdout, err := cmd.Output()
+			if err != nil {
+				logger.Println(logger.ERROR, err.Error())
+				return
+			}
+			// Print the output
+			logger.Println(logger.DBG, string(stdout))
+			logger.Flush()
+		}()
+	} else {
+		logger.Printf(logger.INFO, ">> EXEC '%s'", data)
+	}
 }

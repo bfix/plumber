@@ -37,16 +37,16 @@ import (
 
 // RuleList is a list of rules and environment variables
 type RuleList struct {
-	Rules []*RuleSet        // list of rules
-	Env   map[string]string // environment variables
-	Exec  Action            // plumbing action
+	Rulesets []*RuleSet        // list of rules
+	Env      map[string]string // environment variables
+	Exec     NewAction         // plumbing action
 }
 
-// Evaluate data,src,dst,wdir against all rules in set.
-// If msg is not null, rid points to the matching rule
+// Evaluate incoming message against all rulesets.
+// If msg is not null, rid points to the matching ruleset
 func (rs *RuleList) Evaluate(in *Message, withFS bool) (out *Message, rid int, err error) {
 	rid = -1
-	for i, r := range rs.Rules {
+	for i, r := range rs.Rulesets {
 		if out, err = r.Evaluate(in, rs.Env, withFS, rs.Exec); err != nil {
 			return
 		}
@@ -67,7 +67,7 @@ func (rs *RuleList) String() string {
 		fmt.Fprintf(buf, "%s = %s\n", k, v)
 	}
 	buf.WriteString("\n\n")
-	for _, r := range rs.Rules {
+	for _, r := range rs.Rulesets {
 		buf.WriteString(r.String() + "\n\n")
 	}
 	return buf.String()
@@ -79,8 +79,8 @@ func ParseRulesFile(in io.Reader, env map[string]string) (rs *RuleList, err erro
 		env = make(map[string]string)
 	}
 	rs = &RuleList{
-		Rules: make([]*RuleSet, 0),
-		Env:   env,
+		Rulesets: make([]*RuleSet, 0),
+		Env:      env,
 	}
 	// read rules as a list of multi-line strings
 	var list []string
@@ -129,7 +129,7 @@ func ParseRulesFile(in io.Reader, env map[string]string) (rs *RuleList, err erro
 		if rule, err = ParseRuleSet(r); err != nil {
 			return
 		}
-		rs.Rules = append(rs.Rules, rule)
+		rs.Rulesets = append(rs.Rulesets, rule)
 	}
 	return
 }
@@ -176,9 +176,9 @@ func (r *RuleSet) String() string {
 }
 
 // Evaluate a rule against input
-func (r *RuleSet) Evaluate(in *Message, env map[string]string, withFS bool, action Action) (out *Message, err error,
+func (r *RuleSet) Evaluate(in *Message, env map[string]string, withFS bool, worker NewAction) (out *Message, err error,
 ) {
-	k := NewKernel(action)
+	k := NewKernel(worker())
 	k.Message = *in
 	k.withFS = withFS
 

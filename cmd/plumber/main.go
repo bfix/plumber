@@ -42,7 +42,7 @@ func main() {
 
 	// prepare plumber and load rules file
 	action := new(PlumbAction)
-	plmb := lib.NewPlumber(action.Process)
+	plmb := lib.NewPlumber(action.NewWorker)
 	f, err := os.Open(*rules)
 	if err != nil {
 		log.Fatal(err)
@@ -67,6 +67,6 @@ func main() {
 		}
 	}()
 
-	action.srv = ns
+	action.Srv = ns
 	RunService(ns.srv)
 }

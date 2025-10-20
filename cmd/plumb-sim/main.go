@@ -42,7 +42,11 @@ func main() {
 		ok = true
 		return
 	}
-	plmb := lib.NewPlumber(exec)
+	worker := func() lib.Action {
+		return exec
+	}
+
+	plmb := lib.NewPlumber(worker)
 	f, err := os.Open(rules)
 	if err != nil {
 		log.Fatal(err)
