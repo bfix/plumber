@@ -77,6 +77,15 @@ func (s *Service) FeedPort(name string, msg *lib.Message) bool {
 	return f.Post(msg)
 }
 
+// KeepMsg for un-opened port file
+func (s *Service) KeepMsg(name string, msg *lib.Message) bool {
+	f, ok := s.ports[name]
+	if !ok {
+		return false
+	}
+	return f.Keep(msg)
+}
+
 //----------------------------------------------------------------------
 
 // RuleFile ('/mnt/plumb/rules')
@@ -245,6 +254,7 @@ type PortFile struct {
 
 	skipped uint64      // fid-mapped skips
 	buf     []byte      // current content
+	pending bool        // pending message (don't clear on Open)
 	post    chan []byte // channel for posting messages
 	watched bool        // is someone reading this?
 }
@@ -255,6 +265,7 @@ func NewPortFile(s *proto.Stat) *PortFile {
 		BaseFile: *fs.NewBaseFile(s),
 		skipped:  0,
 		buf:      []byte{},
+		pending:  false,
 		post:     make(chan []byte),
 		watched:  false,
 	}
@@ -266,6 +277,19 @@ func (f *PortFile) Post(msg *lib.Message) bool {
 		return false
 	}
 	f.post <- []byte(msg.String())
+	return true
+}
+
+// Keep a message for yet un-opened port file
+func (f *PortFile) Keep(msg *lib.Message) bool {
+	if f.watched {
+		return false
+	}
+	f.Lock()
+	defer f.Unlock()
+
+	f.buf = []byte(msg.String())
+	f.pending = true
 	return true
 }
 
@@ -283,7 +307,10 @@ func (f *PortFile) Open(fid uint64, omode proto.Mode) (err error) {
 		return errors.New("can't write file")
 	}
 	f.skipped = 0
-	f.buf = []byte{}
+	if !f.pending {
+		f.buf = []byte{}
+	}
+	f.pending = false
 	return
 }
 
