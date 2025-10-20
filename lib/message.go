@@ -86,7 +86,9 @@ func (m *Message) unpackAttr(s string) map[string]string {
 	res := make(map[string]string)
 	for _, s := range ParseParts(s) {
 		v := strings.SplitN(s, "=", 2)
-		res[v[0]] = v[1]
+		if len(v[1]) > 0 {
+			res[v[0]] = v[1]
+		}
 	}
 	return res
 }
@@ -95,7 +97,9 @@ func (m *Message) unpackAttr(s string) map[string]string {
 func (m *Message) GetAttr() (out string) {
 	var list []string
 	for k, v := range m.Attr {
-		list = append(list, k+"="+Quote(v))
+		if len(v) > 0 {
+			list = append(list, k+"="+Quote(v))
+		}
 	}
 	return strings.Join(list, " ")
 }
