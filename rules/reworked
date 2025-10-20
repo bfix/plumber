@@ -32,7 +32,7 @@ emailaddr = '('$user')@('$domain')'
 
 #-----------------------------------------------------------------------
 
-# rules
+# rulesets
 
 type    is      text
 data    matches $protocol'://[^ ]+'

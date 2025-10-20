@@ -37,6 +37,7 @@ import (
 
 // RuleList is a list of rules and environment variables
 type RuleList struct {
+	Seq      []any             // sequence of entries
 	Rulesets []*RuleSet        // list of rules
 	Env      map[string]string // environment variables
 	Exec     NewAction         // plumbing action
@@ -62,13 +63,13 @@ func (rs *RuleList) Evaluate(in *Message, withFS bool) (out *Message, rid int, e
 // String returns the active rules as string
 func (rs *RuleList) String() string {
 	buf := new(bytes.Buffer)
-	buf.WriteString("# active plumbing rules\n\n")
-	for k, v := range rs.Env {
-		fmt.Fprintf(buf, "%s = %s\n", k, v)
-	}
-	buf.WriteString("\n\n")
-	for _, r := range rs.Rulesets {
-		buf.WriteString(r.String() + "\n\n")
+	for _, v := range rs.Seq {
+		switch x := v.(type) {
+		case string:
+			buf.WriteString(x + "\n\n")
+		case *RuleSet:
+			buf.WriteString(x.String() + "\n\n")
+		}
 	}
 	return buf.String()
 }
@@ -79,16 +80,27 @@ func ParsePlumbingFile(in io.Reader, env map[string]string) (rs *RuleList, err e
 		env = make(map[string]string)
 	}
 	rs = &RuleList{
-		Rulesets: make([]*RuleSet, 0),
+		Seq:      []any{},
+		Rulesets: []*RuleSet{},
 		Env:      env,
 	}
 	// Preprocessor
 	var main string
 	var branches []string
 
+	// parse rules
+	parseRule := func(r string) {
+		var rule *RuleSet
+		if rule, err = ParseRuleSet(r); err != nil {
+			return
+		}
+		rs.Rulesets = append(rs.Rulesets, rule)
+		rs.Seq = append(rs.Seq, rule)
+	}
+
 	// read rules as a list of multi-line strings
-	var list []string
 	rdr := bufio.NewReader(in)
+	comments := ""
 	buf := ""
 	for {
 		// read next line
@@ -100,7 +112,15 @@ func ParsePlumbingFile(in io.Reader, env map[string]string) (rs *RuleList, err e
 			return
 		}
 		if len(s) > 0 && s[0] == '#' {
+			if len(comments) > 0 {
+				comments += "\n"
+			}
+			comments += string(s)
 			continue
+		}
+		if len(comments) > 0 {
+			rs.Seq = append(rs.Seq, comments)
+			comments = ""
 		}
 		line := Canonical(string(s))
 
@@ -108,6 +128,7 @@ func ParsePlumbingFile(in io.Reader, env map[string]string) (rs *RuleList, err e
 		t := Canonical(strings.Replace(line, "=", " = ", 1))
 		if parts := strings.SplitN(t, " ", 3); len(parts) == 3 && parts[1] == "=" {
 			rs.Env[parts[0]] = parts[2]
+			rs.Seq = append(rs.Seq, t)
 			continue
 		}
 
@@ -128,12 +149,12 @@ func ParsePlumbingFile(in io.Reader, env map[string]string) (rs *RuleList, err e
 			if len(main) > 0 {
 				branches = append(branches, buf)
 				for _, br := range branches {
-					list = append(list, main+"\n"+br)
+					parseRule(main + "\n" + br)
 				}
 				main = ""
-				branches = make([]string, 0)
+				branches = []string{}
 			} else if len(buf) > 0 {
-				list = append(list, buf)
+				parseRule(buf)
 			}
 			buf = ""
 			continue
@@ -144,15 +165,7 @@ func ParsePlumbingFile(in io.Reader, env map[string]string) (rs *RuleList, err e
 		buf += Canonical(line)
 	}
 	if len(buf) > 0 {
-		list = append(list, buf)
-	}
-	// parse rules
-	for _, r := range list {
-		var rule *RuleSet
-		if rule, err = ParseRuleSet(r); err != nil {
-			return
-		}
-		rs.Rulesets = append(rs.Rulesets, rule)
+		parseRule(buf)
 	}
 	return
 }

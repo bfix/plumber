@@ -99,7 +99,7 @@ func NewKernel(w Action) *Kernel {
 			Attr: make(map[string]string),
 		},
 		withFS: true,
-		dollar: make([]string, 0),
+		dollar: []string{},
 		vars:   make(map[string]string),
 		worker: w,
 	}
