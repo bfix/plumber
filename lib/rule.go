@@ -35,6 +35,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/bfix/gospel/logger"
 )
 
 // Grammer contains a list of (valid) verbs for an object
@@ -133,6 +135,7 @@ func (k *Kernel) Execute(r *Rule, env map[string]string) (ok bool, done bool, er
 			break
 		}
 		matches := k.re.FindAllStringSubmatch(obj, -1)
+		logger.Printf(logger.DBG, "| match '%s' against '%s' => %v", obj, data, matches)
 		if ok = (matches != nil && (obj == matches[0][0])); ok {
 			k.dollar = matches[0]
 		}

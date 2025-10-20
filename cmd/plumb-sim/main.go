@@ -28,6 +28,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/bfix/gospel/logger"
 	"github.com/bfix/plumber/lib"
 )
 
@@ -35,6 +36,10 @@ func main() {
 	var rules string
 	flag.StringVar(&rules, "r", "", "name of rules file")
 	flag.Parse()
+
+	// setup logging
+	logger.SetLogLevelFromName("DBG")
+	logger.UseFormat(logger.ColorFormat)
 
 	exec := func(msg *lib.Message, verb, data string) (ok, done bool) {
 		log.Printf("==> %s %s", verb, lib.Quote(data))
