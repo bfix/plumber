@@ -54,16 +54,9 @@ func main() {
 	}
 
 	plmb := lib.NewPlumber(worker)
-	loadRules := func(name string) error {
-		f, err := os.Open(name)
-		if err != nil {
-			log.Fatal(err)
-		}
-		err = plmb.ParseRulesFile(f)
-		f.Close()
-		return err
+	if err := plmb.ParsePlumbingFile(rules); err != nil {
+		log.Fatal(err)
 	}
-	loadRules(rules)
 
 	rdr := bufio.NewReader(os.Stdin)
 	for {
@@ -81,13 +74,13 @@ func main() {
 		parts := lib.ParseParts(line)
 		switch parts[0] {
 		case ".reload":
-			if err = loadRules(rules); err != nil {
+			if err = plmb.ParsePlumbingFile(rules); err != nil {
 				log.Fatal(err)
 			}
 			continue
 
 		case ".load":
-			if err = loadRules(parts[1]); err != nil {
+			if err = plmb.ParsePlumbingFile(parts[1]); err != nil {
 				log.Fatal(err)
 			}
 			continue

@@ -116,7 +116,7 @@ func (f *RulesFile) Close(fid uint64) (err error) {
 	case proto.Owrite:
 		data := f.content[fid]
 		rdr := bytes.NewBuffer(data)
-		err = f.plmb.ParseRulesFile(rdr)
+		err = f.plmb.ParsePlumbingFromRdr(rdr)
 		f.syncPorts()
 	}
 	delete(f.content, fid)

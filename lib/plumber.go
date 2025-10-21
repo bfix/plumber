@@ -21,7 +21,9 @@
 package lib
 
 import (
+	"errors"
 	"io"
+	"os"
 )
 
 // Action triggered by object "plumb"
@@ -45,12 +47,25 @@ func NewPlumber(worker NewAction) *Plumber {
 	}
 }
 
-// ParseRulesFile from a reader
-func (p *Plumber) ParseRulesFile(rdr io.Reader) (err error) {
-	p.rl, err = ParsePlumbingFile(rdr)
+// ParsePlumbingFromRdr reads rulesets from a reader
+func (p *Plumber) ParsePlumbingFromRdr(rdr io.Reader) (err error) {
+	p.rl, err = ParsePlumbingFromRdr(rdr)
 	p.rl.Exec = p.worker
 	p.rules = []byte(p.rl.String())
 	return
+}
+
+// ParsePlumbingFile reads rules for a file
+func (p *Plumber) ParsePlumbingFile(fname string) error {
+	if len(fname) == 0 {
+		return errors.New("no filename")
+	}
+	f, err := os.Open(fname)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return p.ParsePlumbingFromRdr(f)
 }
 
 // Ports returns a list of all ports referenced in the current list of rules

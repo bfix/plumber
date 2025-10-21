@@ -22,7 +22,6 @@ package main
 
 import (
 	"flag"
-	"log"
 	"os"
 
 	"github.com/bfix/gospel/logger"
@@ -44,13 +43,12 @@ func main() {
 	plmb := NewPlumber()
 
 	// load rules file
-	f, err := os.Open(*rules)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-	if err = plmb.ParseRulesFile(f); err != nil {
-		log.Fatal(err)
+	if err := plmb.ParsePlumbingFile(*rules); err != nil {
+		home, _ := os.UserHomeDir()
+		usr := home + "/lib/plumbing"
+		if err = plmb.ParsePlumbingFile(usr); err != nil {
+			logger.Println(logger.WARN, "no plumbing file loaded!")
+		}
 	}
 
 	// build plumber namespace and post/start server
