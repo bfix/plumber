@@ -32,6 +32,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"maps"
 	"strconv"
 	"strings"
 )
@@ -58,6 +59,21 @@ func NewMessage(src, dst, wdir, typ, data string) *Message {
 		Ndata: len(data),
 		Attr:  make(map[string]string),
 	}
+}
+
+// Clone a message
+func (m *Message) Clone() *Message {
+	o := &Message{
+		Src:   m.Src,
+		Dst:   m.Dst,
+		Wdir:  m.Wdir,
+		Type:  m.Type,
+		Data:  m.Data,
+		Ndata: m.Ndata,
+		Attr:  make(map[string]string),
+	}
+	maps.Copy(o.Attr, m.Attr)
+	return o
 }
 
 // ParseMessage from multi-line string

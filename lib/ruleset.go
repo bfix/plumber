@@ -199,7 +199,7 @@ func (r *RuleSet) String() string {
 func (r *RuleSet) Evaluate(in *Message, env map[string]string, withFS bool, worker NewAction) (out *Message, err error,
 ) {
 	k := NewKernel(worker())
-	k.Message = *in
+	k.Message = *(in.Clone())
 	k.withFS = withFS
 
 	for _, cl := range r.Rules {
