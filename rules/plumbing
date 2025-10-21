@@ -3,34 +3,7 @@ editor    = sam
 browser   = mothra
 gopher    = gopher
 
-#-----------------------------------------------------------------------
-
-label     = 'a-zA-Z0-9\-'
-
-# file and path
-name      = $label'¡-￿_,.'
-filename  = '['$name']+'
-pathname  = '['$name'/]+'
-
-audio     = '((?i)mp3|ogg|flac|wav|au|mid|mus|m3u|pls|plist)'
-image     = '((?i)jpe?g|gif|tiff?|ppm|bit|png|pgm|bmp|yuv|tga)'
-document  = '((?i)ps|eps|pdf|dvi|doc|epub|cb[tz])'
-
-addrelem  = '((#?[0-9]+)|(/[A-Za-z0-9_\^]+/?)|[.$])'
-addr      = '($addrelem([,;+\-]$addrelem)*):?'
-
-# network
-protocol  = '(https?|ftps?|file|gopher)'
-domain    = '['$label'.]+'
-port      = '(:[0-9]+)?'
-path      = '['$label'./]+'
-query     = '\?['$label'._~&=]*'
-url       = $protocol'://('$domain')'$port'('$path')?('$query')?'
-
-user      = '['$label'._]*'
-emailaddr = '('$user')@('$domain')'
-
-#-----------------------------------------------------------------------
+include patterns
 
 # rulesets
 
