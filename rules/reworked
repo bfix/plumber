@@ -37,19 +37,32 @@ emailaddr = '('$user')@('$domain')'
 type    is      text
 data    matches $protocol'://[^ ]+'
 data    matches $url
+v_url   set     $0
 attr    add     proto=$1 domain=$2 port=$3 path=$4 query=$5
-dst     set     $1
-branch
-  dst     matches 'https?'
-  plumb   to      web
-  plumb   client  window $browser
-branch
-  dst     matches 'gopher'
+v_proto set     $1
+v_dom   set     $2
+{
+  v_proto matches 'https?'
+  {
+    v_dom   matches '.*\.onion'
+    data    set     $v_url'.to'  
+    plumb   to      web
+    plumb   client  window $browser
+  }
+  {
+    plumb   to      web
+    plumb   client  window $browser
+  }
+}
+{
+  v_proto is      gopher
   plumb   to      gopher
   plumb   client  window $gopher
-branch
-  dst     matches 'ftps?'
+}
+{
+  v_proto matches 'ftps?'
   plumb   start   ftpfs $data
+}
 
 type    is      text
 data    matches $emailaddr
@@ -76,22 +89,26 @@ plumb   start   rc -c $1
 type    is      text
 data    matches $filename
 arg     isfile  $0
-branch
+{
   data    matches $filename'\.rtf'
   plumb   to      msword
   plumb   start   wdoc2txt $file
-branch
+}
+{
   data    matches $filename'\.'$audio
   plumb   to      audio
   plumb   start   window -scroll play $file
-branch
+}
+{
   data    matches $filename'\.'$image
   plumb   to      image
   plumb   client  page -wi
-branch
+}
+{
   data    matches $filename'\.'$document
   plumb   to      postscript
   plumb   start   page -w $file
+}
 
 type    is      text
 data    matches '($filename):($addr)?'

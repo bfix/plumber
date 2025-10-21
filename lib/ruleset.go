@@ -32,6 +32,9 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/bfix/gospel/data"
+	"github.com/bfix/gospel/logger"
 )
 
 // RuleList is a list of rules and environment variables
@@ -44,10 +47,10 @@ type RuleList struct {
 
 // Evaluate incoming message against all rulesets.
 // If msg is not null, rid points to the matching ruleset
-func (rs *RuleList) Evaluate(in *Message, withFS bool) (out *Message, rid int, err error) {
+func (rl *RuleList) Evaluate(in *Message, withFS bool) (out *Message, rid int, err error) {
 	rid = -1
-	for i, r := range rs.Rulesets {
-		if out, err = r.Evaluate(in, rs.Env, withFS, rs.Exec); err != nil {
+	for i, r := range rl.Rulesets {
+		if out, err = r.Evaluate(in, rl.Env, withFS, rl.Exec); err != nil {
 			return
 		}
 		if out == nil {
@@ -60,8 +63,16 @@ func (rs *RuleList) Evaluate(in *Message, withFS bool) (out *Message, rid int, e
 }
 
 // String returns the active rules as string
-func (rs *RuleList) String() string {
-	return string(rs.file)
+func (rl *RuleList) String() string {
+	return string(rl.file)
+}
+
+// Ports returns all ports referenced in in list
+func (rl *RuleList) Ports() (list []string) {
+	for _, r := range rl.Rulesets {
+		list = append(list, r.Ports()...)
+	}
+	return
 }
 
 // ParsePlumbingFile reads a list of rules and environment settings from a reader
@@ -74,12 +85,9 @@ func ParsePlumbingFile(in io.Reader, env map[string]string) (rs *RuleList, err e
 		Rulesets: []*RuleSet{},
 		Env:      env,
 	}
-	// Preprocessor
-	var main string
-	var branches []string
 
 	// parse rules
-	parseRule := func(r string) {
+	parseRuleSet := func(r string) {
 		var rule *RuleSet
 		if rule, err = ParseRuleSet(r); err != nil {
 			return
@@ -116,29 +124,10 @@ func ParsePlumbingFile(in io.Reader, env map[string]string) (rs *RuleList, err e
 			continue
 		}
 
-		// check for "rule branch"
-		if t == "branch" {
-			if len(main) == 0 {
-				main = buf
-			} else {
-				branches = append(branches, buf)
-			}
-			buf = ""
-			continue
-		}
-
 		// handle possible rule
 		if len(line) == 0 {
-			// need unwrapping?
-			if len(main) > 0 {
-				branches = append(branches, buf)
-				for _, br := range branches {
-					parseRule(main + "\n" + br)
-				}
-				main = ""
-				branches = []string{}
-			} else if len(buf) > 0 {
-				parseRule(buf)
+			if len(buf) > 0 {
+				parseRuleSet(buf)
 			}
 			buf = ""
 			continue
@@ -149,7 +138,7 @@ func ParsePlumbingFile(in io.Reader, env map[string]string) (rs *RuleList, err e
 		buf += Canonical(line)
 	}
 	if len(buf) > 0 {
-		parseRule(buf)
+		parseRuleSet(buf)
 	}
 	return
 }
@@ -158,41 +147,85 @@ func ParsePlumbingFile(in io.Reader, env map[string]string) (rs *RuleList, err e
 
 // RuleSet is a list of rules that are evaluated against an input
 type RuleSet struct {
-	Rules []*Rule
+	Rules []any // can be *Rule or *RuleSet
 }
 
 // ParseRuleSet parses a single ruleset from a multi-line string
+// Rulesets can be nested.
 func ParseRuleSet(s string) (r *RuleSet, err error) {
-	r = &RuleSet{
-		Rules: []*Rule{},
-	}
+	var curr []any
+	st := data.NewStack()
 	for line := range strings.SplitSeq(s, "\n") {
-		if len(line) == 0 {
+		// skip comments
+		if len(line) == 0 || line[0] == '#' {
 			continue
 		}
+		// handle nesting
+		if line[0] == '{' {
+			st.Push(curr)
+			curr = []any{}
+			continue
+		} else if line[0] == '}' {
+			last := st.Pop().([]any)
+			last = append(last, curr)
+			curr = last
+			continue
+		}
+		// parse rule
 		line = Canonical(line)
+		logger.Println(logger.DBG, line)
 		words := strings.SplitN(line, " ", 3)
 		if !grammer.Valid(words[0], words[1]) {
 			err = fmt.Errorf("invalid rule: '%s'", line)
 			break
 		}
-		cl := &Rule{
+		rule := &Rule{
 			Obj:  words[0],
 			Verb: words[1],
 			Data: words[2],
 		}
-		r.Rules = append(r.Rules, cl)
+		curr = append(curr, rule)
 	}
-	return
+	return &RuleSet{
+		Rules: curr,
+	}, nil
 }
 
 // String returns a human-readble representation of a rule
 func (r *RuleSet) String() string {
-	var list []string
+	return strings.Join(r.lines(""), "\n")
+}
+
+// return the ruleset as a list of rule lines (correctly indented)
+func (r *RuleSet) lines(indent string) (list []string) {
 	for _, c := range r.Rules {
-		list = append(list, c.String())
+		switch x := c.(type) {
+		case *Rule:
+			list = append(list, x.String())
+		case []any:
+			list = append(list, indent+"{")
+			s := (&RuleSet{x}).lines(indent + "  ")
+			list = append(list, s...)
+			list = append(list, indent+"}")
+		}
 	}
-	return strings.Join(list, "\n")
+	return
+}
+
+// Ports returns a list of referenced ports in the ruleset
+func (r *RuleSet) Ports() (list []string) {
+	for _, c := range r.Rules {
+		switch x := c.(type) {
+		case *Rule:
+			if x.Obj == "plumb" && x.Verb == "to" {
+				list = append(list, x.Data)
+			}
+		case []any:
+			p := (&RuleSet{x}).Ports()
+			list = append(list, p...)
+		}
+	}
+	return
 }
 
 // Evaluate a rule against input
@@ -202,17 +235,35 @@ func (r *RuleSet) Evaluate(in *Message, env map[string]string, withFS bool, work
 	k.Message = *(in.Clone())
 	k.withFS = withFS
 
-	for _, cl := range r.Rules {
-		var ok, done bool
-		if ok, done, err = k.Execute(cl, env); err != nil {
-			return
+	st := data.NewStack()
+	var eval func([]any) (*Message, error)
+	eval = func(rules []any) (*Message, error) {
+		for _, rule := range rules {
+			switch x := rule.(type) {
+			case *Rule:
+				ok, done, err := k.Execute(x, env)
+				logger.Printf(logger.DBG, "! %s -> ok=%v, done=%v", x.String(), ok, done)
+				if err != nil {
+					return nil, err
+				}
+				if !ok {
+					return nil, nil
+				}
+				if done {
+					return &k.Message, nil
+				}
+			case []any:
+				st.Push(k.Clone())
+				logger.Println(logger.DBG, "! branch down")
+				out, err := eval(x)
+				logger.Printf(logger.DBG, "! branch up -> out=%v, err=%v", out != nil, err)
+				k = st.Pop().(*Kernel)
+				if err != nil || out != nil {
+					return out, err
+				}
+			}
 		}
-		if !ok {
-			return nil, nil
-		}
-		if done {
-			break
-		}
+		return nil, nil
 	}
-	return &k.Message, nil
+	return eval(r.Rules)
 }
