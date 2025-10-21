@@ -31,6 +31,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/bfix/gospel/data"
@@ -75,8 +76,8 @@ func (rl *RuleList) Ports() (list []string) {
 	return
 }
 
-// ParsePlumbingFile reads a list of rules and environment settings from a reader
-func ParsePlumbingFile(in io.Reader) (rs *RuleList, err error) {
+// ParsePlumbingFromRdr reads a list of rules and environment settings from a reader
+func ParsePlumbingFromRdr(in io.Reader) (rs *RuleList, err error) {
 	rs = &RuleList{
 		file:     []byte{},
 		Rulesets: []*RuleSet{},
@@ -95,11 +96,16 @@ func ParsePlumbingFile(in io.Reader) (rs *RuleList, err error) {
 	// read rules as a list of multi-line strings
 	rdr := bufio.NewReader(in)
 	buf := ""
+	rdrSt := data.NewStack()
 	for {
 		// read next line
 		var s []byte
 		if s, _, err = rdr.ReadLine(); err != nil {
 			if err == io.EOF {
+				if rdrSt.Len() > 0 {
+					rdr = rdrSt.Pop().(*bufio.Reader)
+					continue
+				}
 				break
 			}
 			return
@@ -121,6 +127,17 @@ func ParsePlumbingFile(in io.Reader) (rs *RuleList, err error) {
 			rs.Env[parts[0]] = parts[2]
 			logger.Printf(logger.DBG, "ENV: %s=%s", parts[0], parts[2])
 			continue
+		}
+		// check for include command
+		if parts[0] == "include" {
+			f, err := os.Open("/usr/lib/plumb/" + parts[1])
+			if err != nil {
+				logger.Printf(logger.WARN, "import of '%s' failed", parts[1])
+			} else {
+				defer f.Close()
+				rdrSt.Push(rdr)
+				rdr = bufio.NewReader(f)
+			}
 		}
 
 		// handle possible rule
