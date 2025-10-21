@@ -132,8 +132,21 @@ func (k *Kernel) Get(name string) (string, error) {
 		// ignore value-less "variables"
 		return "", nil
 	}
+	// "matches" results
+	if i, err := strconv.Atoi(name); err == nil {
+		if i >= 0 && i < len(k.dollar) {
+			return k.dollar[i], nil
+		}
+	}
+	// variables
+	if v, ok := k.vars[name]; ok {
+		return v, nil
+	}
+	// state variable
 	if strings.HasPrefix(name, "v_") {
-		return k.state[name], nil
+		if v, ok := k.state[name]; ok {
+			return v, nil
+		}
 	}
 	return k.Message.Get(name)
 }
@@ -153,10 +166,7 @@ func (k *Kernel) Execute(r *Rule, env map[string]string) (ok bool, done bool, er
 	k.Type = "text"
 
 	// get object and data value
-	var obj string
-	if obj, err = k.Get(r.Obj); err != nil {
-		return
-	}
+	obj, _ := k.Get(r.Obj)
 	data := k.expand(r.Data, env)
 
 	// handle verbs: the meaning of a verb is independent from the object
@@ -167,7 +177,7 @@ func (k *Kernel) Execute(r *Rule, env map[string]string) (ok bool, done bool, er
 			break
 		}
 		matches := k.re.FindAllStringSubmatch(obj, -1)
-		logger.Printf(logger.DBG, "| match '%s' against '%s' => %v", obj, data, matches)
+		logger.Printf(logger.DBG, "~ match '%s' against '%s' => %v", obj, data, matches)
 		if ok = (matches != nil && (obj == matches[0][0])); ok {
 			k.dollar = matches[0]
 		}
@@ -210,6 +220,7 @@ func (k *Kernel) Execute(r *Rule, env map[string]string) (ok bool, done bool, er
 			k.vars["file"] = data
 		}
 	case "set":
+		logger.Printf(logger.DBG, "SET: %s = %s", r.Obj, data)
 		ok = k.Set(r.Obj, data)
 	case "add":
 		maps.Copy(k.Attr, k.unpackAttr(data))
@@ -234,16 +245,13 @@ func (k *Kernel) Execute(r *Rule, env map[string]string) (ok bool, done bool, er
 // expand $-variables in unquoted string
 func (k *Kernel) expand(s string, env map[string]string) string {
 	lookup := func(name string) string {
-		if i, err := strconv.Atoi(name); err == nil {
-			if i >= 0 && i < len(k.dollar) {
-				return k.dollar[i]
-			}
-		}
-		if v, err := k.Get(name); err == nil {
+		if v, ok := env[name]; ok {
 			return v
 		}
-		return env[name]
+		v, _ := k.Get(name)
+		return v
 	}
 	out := Unquote(s, lookup)
+	logger.Printf(logger.DBG, "EXPAND: '%s' -> '%s'", s, out)
 	return out
 }
