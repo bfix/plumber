@@ -110,8 +110,10 @@ func ParsePlumbingFromRdr(in io.Reader) (rs *RuleList, err error) {
 			}
 			return
 		}
-		rs.file = append(rs.file, s...)
-		rs.file = append(rs.file, '\n')
+		if rdrSt.Len() == 0 {
+			rs.file = append(rs.file, s...)
+			rs.file = append(rs.file, '\n')
+		}
 
 		// skip comments
 		if len(s) > 0 && s[0] == '#' {
