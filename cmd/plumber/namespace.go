@@ -58,7 +58,7 @@ func NewRulesFile(s *proto.Stat, plmb *Plumber, sync func()) *RulesFile {
 // Stat returns the current file stats
 func (f *RulesFile) Stat() proto.Stat {
 	s := f.BaseFile.Stat()
-	l := uint64(len(f.plmb.Rules()))
+	l := uint64(len(f.plmb.File()))
 	//logger.Printf(logger.DBG, "Stat{length: %d -> %d}", s.Length, l)
 	s.Length = l // adjust file size to content
 	f.WriteStat(&s)
@@ -72,7 +72,7 @@ func (f *RulesFile) Open(fid uint64, omode proto.Mode) error {
 	//logger.Printf(logger.DBG, "Open{fid:%d,omode=%v}", fid, omode)
 
 	f.mode = omode
-	f.content[fid] = f.plmb.Rules()
+	f.content[fid] = f.plmb.File()
 	return nil
 }
 

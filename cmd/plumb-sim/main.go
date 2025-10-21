@@ -54,7 +54,9 @@ func main() {
 	}
 
 	plmb := lib.NewPlumber(worker)
-	if err := plmb.ParsePlumbingFile(rules); err != nil {
+	home, _ := os.UserHomeDir()
+	fallback := home + "/lib/plumbing"
+	if err := plmb.ParsePlumbingFile(rules, fallback); err != nil {
 		log.Fatal(err)
 	}
 
@@ -74,19 +76,19 @@ func main() {
 		parts := lib.ParseParts(line)
 		switch parts[0] {
 		case ".reload":
-			if err = plmb.ParsePlumbingFile(rules); err != nil {
+			if err = plmb.ParsePlumbingFile(rules, ""); err != nil {
 				log.Fatal(err)
 			}
 			continue
 
 		case ".load":
-			if err = plmb.ParsePlumbingFile(parts[1]); err != nil {
+			if err = plmb.ParsePlumbingFile(parts[1], ""); err != nil {
 				log.Fatal(err)
 			}
 			continue
 
 		case ".show":
-			log.Println(string(plmb.Rules()))
+			log.Println(string(plmb.File()))
 
 		default:
 			log.Printf("<== %s", line)

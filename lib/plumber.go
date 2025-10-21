@@ -36,14 +36,12 @@ type NewAction func() Action
 type Plumber struct {
 	rl     *RuleList
 	worker NewAction
-	rules  []byte
 }
 
 // NewPlumber creates a new plumber instance
 func NewPlumber(worker NewAction) *Plumber {
 	return &Plumber{
 		worker: worker,
-		rules:  []byte{},
 	}
 }
 
@@ -51,12 +49,21 @@ func NewPlumber(worker NewAction) *Plumber {
 func (p *Plumber) ParsePlumbingFromRdr(rdr io.Reader) (err error) {
 	p.rl, err = ParsePlumbingFromRdr(rdr)
 	p.rl.Exec = p.worker
-	p.rules = []byte(p.rl.String())
 	return
 }
 
-// ParsePlumbingFile reads rules for a file
-func (p *Plumber) ParsePlumbingFile(fname string) error {
+// ParsePlumbingFile with a fallback if the initial read fails
+func (p *Plumber) ParsePlumbingFile(fname, fallback string) error {
+	err := p.parsePlumbingFile(fname)
+	if err != nil {
+		err = p.parsePlumbingFile(fallback)
+	}
+	return err
+}
+
+// ParsePlumbingFile reads rules from a file.
+// If the file does not exist, the
+func (p *Plumber) parsePlumbingFile(fname string) error {
 	if len(fname) == 0 {
 		return errors.New("no filename")
 	}
@@ -73,9 +80,9 @@ func (p *Plumber) Ports() (list []string) {
 	return p.rl.Ports()
 }
 
-// Rules returns the current rules as a byte array
-func (p *Plumber) Rules() []byte {
-	return p.rules
+// File returns the current rules as a byte array
+func (p *Plumber) File() []byte {
+	return p.rl.File()
 }
 
 // Env returns the current environment from the rules file

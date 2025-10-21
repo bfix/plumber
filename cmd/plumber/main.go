@@ -43,12 +43,10 @@ func main() {
 	plmb := NewPlumber()
 
 	// load rules file
-	if err := plmb.ParsePlumbingFile(*rules); err != nil {
-		home, _ := os.UserHomeDir()
-		usr := home + "/lib/plumbing"
-		if err = plmb.ParsePlumbingFile(usr); err != nil {
-			logger.Println(logger.WARN, "no plumbing file loaded!")
-		}
+	home, _ := os.UserHomeDir()
+	fallback := home + "/lib/plumbing"
+	if err := plmb.ParsePlumbingFile(*rules, fallback); err != nil {
+		logger.Println(logger.WARN, "no plumbing file loaded!")
 	}
 
 	// build plumber namespace and post/start server

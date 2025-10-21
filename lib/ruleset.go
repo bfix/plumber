@@ -63,9 +63,9 @@ func (rl *RuleList) Evaluate(in *Message, withFS bool) (out *Message, rid int, e
 	return
 }
 
-// String returns the active rules as string
-func (rl *RuleList) String() string {
-	return string(rl.file)
+// File returns the active rules as a byte array
+func (rl *RuleList) File() []byte {
+	return rl.file
 }
 
 // Ports returns all ports referenced in in list
