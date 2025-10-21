@@ -90,31 +90,25 @@ func expand(in string, look Lookup) (out string) {
 		return in
 	}
 	var key string
-	var skip int
 	for {
 		i := strings.IndexRune(in, '$')
 		if i == -1 || i+1 > len(in)-1 {
 			out += in
 			break
 		}
-		if j := int(in[i+1] - '0'); j >= 0 && j < 10 {
-			key = in[i+1 : i+2]
-			skip = 1
-		} else {
-			n := strings.IndexFunc(in[i+1:], func(r rune) bool {
-				return !unicode.IsLetter(r)
-			})
-			if n == -1 {
-				n = len(in[i+1:])
-			}
-			key = in[i+1 : i+1+n]
-			skip = n
+		// find end of name (rune not in [a-zA-Z0-9_])
+		n := strings.IndexFunc(in[i+1:], func(r rune) bool {
+			return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_'
+		})
+		if n == -1 {
+			n = len(in[i+1:])
 		}
+		key = in[i+1 : i+1+n]
 		out += in[:i]
 		if len(key) > 0 {
 			out += Unquote(look(key), look)
 		}
-		in = in[i+1+skip:]
+		in = in[i+1+n:]
 	}
 	return
 }
