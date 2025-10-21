@@ -66,9 +66,13 @@ func (rs *RuleList) String() string {
 	for _, v := range rs.Seq {
 		switch x := v.(type) {
 		case string:
-			buf.WriteString(x + "\n\n")
+			buf.WriteString(x)
 		case *RuleSet:
 			buf.WriteString(x.String() + "\n\n")
+		case int:
+			for range x {
+				buf.WriteRune('\n')
+			}
 		}
 	}
 	return buf.String()
@@ -87,6 +91,7 @@ func ParsePlumbingFile(in io.Reader, env map[string]string) (rs *RuleList, err e
 	// Preprocessor
 	var main string
 	var branches []string
+	skipped := 0
 
 	// parse rules
 	parseRule := func(r string) {
@@ -111,24 +116,28 @@ func ParsePlumbingFile(in io.Reader, env map[string]string) (rs *RuleList, err e
 			}
 			return
 		}
-		if len(s) > 0 && s[0] == '#' {
-			if len(comments) > 0 {
-				comments += "\n"
+		if len(s) > 0 {
+			if skipped > 0 {
+				rs.Seq = append(rs.Seq, skipped)
+				skipped = 0
 			}
-			comments += string(s)
-			continue
+			if s[0] == '#' {
+				comments += string(s) + "\n"
+				continue
+			}
 		}
 		if len(comments) > 0 {
 			rs.Seq = append(rs.Seq, comments)
 			comments = ""
 		}
+
 		line := Canonical(string(s))
 
 		// check for enviroment setting
 		t := Canonical(strings.Replace(line, "=", " = ", 1))
 		if parts := strings.SplitN(t, " ", 3); len(parts) == 3 && parts[1] == "=" {
 			rs.Env[parts[0]] = parts[2]
-			rs.Seq = append(rs.Seq, t)
+			rs.Seq = append(rs.Seq, t+"\n")
 			continue
 		}
 
@@ -145,6 +154,8 @@ func ParsePlumbingFile(in io.Reader, env map[string]string) (rs *RuleList, err e
 
 		// handle possible rule
 		if len(line) == 0 {
+			skipped++
+
 			// need unwrapping?
 			if len(main) > 0 {
 				branches = append(branches, buf)
@@ -153,8 +164,10 @@ func ParsePlumbingFile(in io.Reader, env map[string]string) (rs *RuleList, err e
 				}
 				main = ""
 				branches = []string{}
+				skipped = 0
 			} else if len(buf) > 0 {
 				parseRule(buf)
+				skipped = 0
 			}
 			buf = ""
 			continue
