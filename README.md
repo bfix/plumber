@@ -95,9 +95,6 @@ branch
 :
 ```
 
-The rulesets are expanded when a rules file is read and are Plan9-compatible
-when written.
-
 #### Testing rule files
 
 The `plumb-sim` program can be used to test rules interactively. It is started with
