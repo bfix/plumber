@@ -46,8 +46,8 @@ func NewPlumber(worker NewAction) *Plumber {
 }
 
 // ParseRulesFile from a reader
-func (p *Plumber) ParseRulesFile(rdr io.Reader, env map[string]string) (err error) {
-	p.rl, err = ParsePlumbingFile(rdr, env)
+func (p *Plumber) ParseRulesFile(rdr io.Reader) (err error) {
+	p.rl, err = ParsePlumbingFile(rdr)
 	p.rl.Exec = p.worker
 	p.rules = []byte(p.rl.String())
 	return

@@ -59,7 +59,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = plmb.ParseRulesFile(f, nil)
+		err = plmb.ParseRulesFile(f)
 		f.Close()
 		return err
 	}

@@ -76,23 +76,20 @@ func (rl *RuleList) Ports() (list []string) {
 }
 
 // ParsePlumbingFile reads a list of rules and environment settings from a reader
-func ParsePlumbingFile(in io.Reader, env map[string]string) (rs *RuleList, err error) {
-	if env == nil {
-		env = make(map[string]string)
-	}
+func ParsePlumbingFile(in io.Reader) (rs *RuleList, err error) {
 	rs = &RuleList{
 		file:     []byte{},
 		Rulesets: []*RuleSet{},
-		Env:      env,
+		Env:      make(map[string]string),
 	}
 
 	// parse rules
 	parseRuleSet := func(r string) {
-		var rule *RuleSet
-		if rule, err = ParseRuleSet(r); err != nil {
+		var ruleset *RuleSet
+		if ruleset, err = ParseRuleSet(r); err != nil {
 			return
 		}
-		rs.Rulesets = append(rs.Rulesets, rule)
+		rs.Rulesets = append(rs.Rulesets, ruleset)
 	}
 
 	// read rules as a list of multi-line strings
@@ -119,8 +116,10 @@ func ParsePlumbingFile(in io.Reader, env map[string]string) (rs *RuleList, err e
 
 		// check for enviroment setting
 		t := Canonical(strings.Replace(line, "=", " = ", 1))
-		if parts := strings.SplitN(t, " ", 3); len(parts) == 3 && parts[1] == "=" {
+		parts := strings.SplitN(t, " ", 3)
+		if len(parts) == 3 && parts[1] == "=" && len(parts[2]) > 0 {
 			rs.Env[parts[0]] = parts[2]
+			logger.Printf(logger.DBG, "ENV: %s=%s", parts[0], parts[2])
 			continue
 		}
 
@@ -173,7 +172,6 @@ func ParseRuleSet(s string) (r *RuleSet, err error) {
 		}
 		// parse rule
 		line = Canonical(line)
-		logger.Println(logger.DBG, line)
 		words := strings.SplitN(line, " ", 3)
 		if !grammer.Valid(words[0], words[1]) {
 			err = fmt.Errorf("invalid rule: '%s'", line)

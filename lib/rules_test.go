@@ -39,7 +39,7 @@ func getRuleList(fname string) (rs *RuleList, err error) {
 	}
 	defer f.Close()
 
-	return ParsePlumbingFile(f, nil)
+	return ParsePlumbingFile(f)
 }
 
 func TestRulesInOut(t *testing.T) {

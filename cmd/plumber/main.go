@@ -49,7 +49,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer f.Close()
-	if err = plmb.ParseRulesFile(f, nil); err != nil {
+	if err = plmb.ParseRulesFile(f); err != nil {
 		log.Fatal(err)
 	}
 
