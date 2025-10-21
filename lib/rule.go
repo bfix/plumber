@@ -44,6 +44,9 @@ type Grammer map[string][]string
 
 // Valid return true if an object can have a certain verb
 func (g Grammer) Valid(obj, verb string) bool {
+	if strings.HasPrefix(obj, "v_") {
+		obj = "v_*"
+	}
 	verbs, ok := g[obj]
 	if !ok {
 		return false
@@ -63,6 +66,7 @@ var (
 		"src":   {"is", "set", "matches"},
 		"type":  {"is"},
 		"wdir":  {"is", "set", "matches"},
+		"v_*":   {"is", "set", "matches"},
 	}
 )
 
@@ -89,6 +93,7 @@ type Kernel struct {
 	withFS bool              // if true "isfile" and "isdir" work on the filesystem
 	dollar []string          // result of last match
 	vars   map[string]string // variables
+	state  map[string]string // processing state
 	worker Action            // performs plumbing action
 }
 
@@ -101,18 +106,45 @@ func NewKernel(w Action) *Kernel {
 		withFS: true,
 		dollar: []string{},
 		vars:   make(map[string]string),
+		state:  make(map[string]string),
 		worker: w,
 	}
 }
 
+// Clone kernel instance
+func (k *Kernel) Clone() *Kernel {
+	r := new(Kernel)
+	r.Message = *k.Message.Clone()
+	r.dollar = slices.Clone(k.dollar)
+	r.vars = maps.Clone(k.vars)
+	r.state = maps.Clone(k.state)
+	r.withFS = k.withFS
+	r.worker = k.worker
+	return r
+}
+
 // Get a variable value from kernel
 func (k *Kernel) Get(name string) (string, error) {
-	switch name {
-	case "arg", "plumb":
+	if len(name) == 0 {
+		return "", nil
+	}
+	if name == "arg" || name == "plumb" {
 		// ignore value-less "variables"
 		return "", nil
 	}
+	if strings.HasPrefix(name, "v_") {
+		return k.state[name], nil
+	}
 	return k.Message.Get(name)
+}
+
+// Set a variable value
+func (k *Kernel) Set(name, data string) bool {
+	if strings.HasPrefix(name, "v_") {
+		k.state[name] = data
+		return true
+	}
+	return k.Message.Set(name, data)
 }
 
 // Execute a rule with the given environment in the kernel
