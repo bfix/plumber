@@ -71,6 +71,12 @@ plumb start wdoc2txt $file
 type is text
 data matches $filename
 arg isfile $0
+data matches $filename'\.pdf'
+plumb start page $file
+
+type is text
+data matches $filename
+arg isfile $0
 data matches $filename'\.'$audio
 plumb to audio
 plumb start window -scroll play $file
@@ -84,16 +90,29 @@ In a `plumber` rules file you can write this as:
 type    is      text
 data    matches $filename
 arg     isfile  $0
-branch
-  data    matches $filename'\.rtf'
-  plumb   to      msword
-  plumb   start   wdoc2txt $file
-branch
+{
+  data    matches $filename'\.'$document
+  v_type  set     $1
+  {
+    v_type  matches '(?i)pdf'
+    plumb   start   page $file
+  }
+  {
+    v_type  matches '(?i)rtf'
+    plumb   to      msword
+    plumb   start   wdoc2txt $file
+  }
+}
+{
   data    matches $filename'\.'$audio
   plumb   to      audio
   plumb   start   window -scroll play $file
+}
 :
 ```
+
+Nested blocks can contain further nested blocks; nested blocks usually appear
+at the end of blocks.
 
 #### Additional variables
 
