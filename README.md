@@ -95,6 +95,12 @@ branch
 :
 ```
 
+#### Additional variables
+
+Using rule branching often requires additional state to be keep for decision
+making. `plumber` rulesets therefore provide additional objects named `v_<name>`
+for this purpose. `name` is a user-defined identifier.
+
 #### Testing rule files
 
 The `plumb-sim` program can be used to test rules interactively. It is started with
